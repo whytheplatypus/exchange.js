@@ -35,6 +35,7 @@ function ExchangeManager(id, peer, path, exchange, options, callback) {
 
 ExchangeManager.prototype.ondata = function(data) {
   this.path = data.path.reverse();
+  console.log(this.path);
   switch(data.type) {
     case 'OFFER':
       this.update(data.payload.labels);

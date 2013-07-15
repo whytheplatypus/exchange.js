@@ -4,10 +4,12 @@
  * The Exchange class, creates an manages peer exchange logic accross a provided dc
  * @param  {String} id The id used to identify the local machiene
  */
-var Exchange = function(id){
+var Exchange = function(id, onpeerconnection){
 	var self = this;
 	this.id = id;
     
+	this.onpeerconnection = onpeerconnection;
+
     /**
      * [managers description]
      * @type {Object}
@@ -17,7 +19,7 @@ var Exchange = function(id){
 	if(arguments.length > 1){
 		this.connections = arguments[1];
 		for(var peer in this.connections){
-			this.initDC(this.connections[peer], peer);
+			this.initDC(this.connections[peer], peer, this.onpeerconnection);
 		}
 	} else {
 		/**
@@ -48,8 +50,6 @@ Exchange.prototype.initDC = function(dc, peer, callback) {
 			datacallback(e);
 		}
 	}
-	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {config:{}}, callback);
-	return this.managers[peer];
 }
 
 /**
@@ -58,24 +58,42 @@ Exchange.prototype.initDC = function(dc, peer, callback) {
  * @return {[type]}      [description]
  */
 Exchange.prototype.ondata = function(data) {
-	if(data.path.indexOf(this.id) == -1){
-		data.path.push(this.id);
-	}
-	if(data.type == 'reliable'){
+	if(data.to != this.id){
+		this.forward(data);
+	} else if(data.type == 'reliable'){
 		this.handleReliable(data);
-	}
-	else if(data.to != this.id){
-		this.emit(data);
 	} else {
-		
-		//flip the path;
-		if(this.managers[data.from]){
+		if(this.managers[data.from] !== undefined){
 			this.managers[data.from].ondata(data);
 		} 
-		// else {
-		// 	this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {config:{}});
-		// 	this.managers[data.from].ondata(data);
-		// }
+		else {
+			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {config:{}}, this.onpeerconnection);
+			this.managers[data.from].ondata(data);
+		}
+	}
+}
+
+Exchange.prototype.forward = function(data) {
+	console.log("forwarding: ", data);
+	if(this.connections[data.to] !== undefined){
+		if(data.path.indexOf(this.id) == -1){
+			data.path.push(this.id);
+		}
+		this.connections[data.to].send(JSON.stringify(data));
+	} else if(data.path.indexOf(this.id)+1 == data.path.length || data.path.indexOf(this.id) == -1){
+		if(data.path.indexOf(this.id) == -1){
+			data.path.push(this.id);
+		}
+		for(var peer in this.connections){
+			//don't send it back down the path
+			if(data.path.indexOf(peer) == -1){
+				this.connections[peer].send(JSON.stringify(data));
+			}
+		}
+	} else if(data.path.indexOf(this.id) > -1){
+		//the path is already set up
+		var nextPeer = data.path.indexOf(this.id)+1;
+		this.connections[nextPeer].send(JSON.stringify(data));
 	}
 }
 
@@ -102,14 +120,16 @@ Exchange.prototype.handleReliable = function(data) {
 				}
 				if(ready){
 					//cleanup
-					var data = "";
+					var newdata = "";
 					for(var hash in this.messages[keys]){
-						data += this.messages[keys][hash];
+						newdata += this.messages[keys][hash];
 					}
 					this.messages[keys] = null;
 					delete this.messages[keys];
-					console.log(data);
-					this.ondata(JSON.parse(data));
+					//console.log(data);
+					newdata = JSON.parse(newdata);
+					newdata.path = data.path;
+					this.ondata(newdata);
 				}
 			}		
 		}
@@ -117,16 +137,16 @@ Exchange.prototype.handleReliable = function(data) {
 	}
 }
 
-Exchange.prototype.reliable = function(string, peer) {
+Exchange.prototype.reliable = function(string, peer, path, to) {
 	var parts = {}
 	for(var i = 0; i < string.length; i+=512){
 		var str = string.substr(i, 512);
 		parts[md5(str)] = str;
 	}
 
-	this.connections[peer].send(JSON.stringify({exchange: true, type:'reliable', to:peer, hashes: Object.keys(parts)}));
+	this.connections[peer].send(JSON.stringify({exchange: true, type:'reliable', path:path, from:this.id, to:to, hashes: Object.keys(parts)}));
 	for(var key in parts){
-		this.connections[peer].send(JSON.stringify({exchange: true, type:'reliable', to:peer, hash: key, data: parts[key]}));
+		this.connections[peer].send(JSON.stringify({exchange: true, type:'reliable', path:path, from:this.id, to:to, hash: key, data: parts[key]}));
 	}
 }
 
@@ -137,21 +157,31 @@ Exchange.prototype.reliable = function(string, peer) {
  */
 Exchange.prototype.emit = function(data) {
 	console.log(data);
+	if(data.path.indexOf(data.to)+1 == data.path.length && data.path.indexOf(this.id) == -1){
+		data.path.unshift(this.id);
+	}
 	if(this.connections[data.to] !== undefined){
-		this.reliable(JSON.stringify(data), data.to);
-	} else if(data.path.indexOf(this.id) == -1){
-		data.path.push(this.id);
+		if(data.path.indexOf(this.id) == -1){
+			data.path.push(this.id);
+		}
+		this.reliable(JSON.stringify(data), data.to, data.path, data.to);
+	} else if(data.path.indexOf(this.id)+1 == data.path.length || data.path.indexOf(this.id) == -1){
+		if(data.path.indexOf(this.id) == -1){
+			data.path.push(this.id);
+		}
 	
 		for(var peer in this.connections){
 			//don't send it back down the path
-			if(data.path.indexOf(peer) > -1){
-				this.reliable(JSON.stringify(data), peer);
+			if(data.path.indexOf(peer) == -1){
+				this.reliable(JSON.stringify(data), peer, data.path, data.to);
 			}
 		}
 	} else if(data.path.indexOf(this.id) > -1){
 		//the path is already set up
+		console.log(data.path);
+		console.log(data.path.indexOf(this.id));
 		var nextPeer = data.path.indexOf(this.id)+1;
-		this.reliable(JSON.stringify(data), data.path[nextPeer]);
+		this.reliable(JSON.stringify(data), data.path[nextPeer], data.path, data.to);
 	}
 	
 }
@@ -163,7 +193,7 @@ Exchange.prototype.emit = function(data) {
  */
 Exchange.prototype.connect = function(peer) {
 	console.log("connecting to ", peer);
-	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {config:{}});
+	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {config:{}}, this.onpeerconnection);
 	return this.managers[peer];
 }
 

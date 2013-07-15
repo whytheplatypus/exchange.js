@@ -64,7 +64,20 @@
                 //list id on firebase
                 document.getElementById("room_id").value = id;
                 document.getElementById("room_id").disabled = true;
-                exchange = new Exchange(id);
+                exchange = new Exchange(id, function(pc){
+                    console.log("peer connection started");
+                    console.log(pc);
+                    pc.ondatachannel = function(evt) {
+                        console.log('Received data channel');
+                        console.log(evt);
+                        evt.channel.onopen = function(){
+                            evt.channel.send("hello world");
+                        };
+                        evt.channel.onmessage = function(msg){
+                            console.log(msg);
+                        };
+                    };
+                });
             });
             peer.on('error', function(error){
                 console.log(error);
@@ -79,11 +92,6 @@
             
             document.getElementById('exchangeConnect').addEventListener('click', function(){
                 var manager = exchange.connect(document.getElementById('exchange_peer_id').value);
-                manager.pc.ondatachannel = function(evt) {
-                    console.log('Received data channel');
-                    console.log(evt);
-                    evt.channel.send("hello world");
-                };
                 var dc = manager.pc.createDataChannel("hello", { reliable: false });
                 console.log(dc);
                 dc.onopen = function(){
@@ -104,20 +112,7 @@
 
         function setUpDC(conn){
             exchange.connections[conn.peer] = conn._dc;
-            var manager = exchange.initDC(exchange.connections[conn.peer], conn.peer, function(pc){
-                console.log("peer connection started");
-                console.log(pc);
-                pc.ondatachannel = function(evt) {
-                    console.log('Received data channel');
-                    console.log(evt);
-                    evt.channel.onopen = function(){
-                        evt.channel.send("hello world");
-                    };
-                    evt.channel.onmessage = function(msg){
-                        console.log(msg);
-                    };
-                };
-            });
+            exchange.initDC(exchange.connections[conn.peer], conn.peer);
         }
         
         document.getElementById('start').addEventListener('click', function(){
