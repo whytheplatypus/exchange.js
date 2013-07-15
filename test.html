@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Untitled Document</title>
+    <script src="exchange_manager.js"></script>
+    <script src="exchange.js"></script>
+    <script src="md5.js"></script>
+    <script src="http://cdn.peerjs.com/0/peer.min.js"></script>
+    
+    <style>
+        html, body {
+              width:  100%;
+              height: 100%;
+              margin: 0px;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-inner">
+<!--            <a class="brand" href="#">Skein</a>-->
+            <div class="navbar-form pull-left">
+              <input type="text" id="room_id" placeholder="room name"/>
+              <button id="start" class="btn">Join</button>
+            </div>
+        </div>
+    </div>
+    <div class="navbar">
+        <div class="navbar-inner">
+<!--            <a class="brand" href="#">Skein</a>-->
+            <div class="navbar-form pull-left">
+              <input type="text" id="exchange_peer_id" placeholder="room name"/>
+              <button id="exchangeConnect" class="btn">exchange Connect</button>
+            </div>
+        </div>
+    </div>
+    <div class="navbar">
+        <div class="navbar-inner">
+<!--            <a class="brand" href="#">Skein</a>-->
+            <div class="navbar-form pull-left">
+              <input type="text" id="peer_id" placeholder="room name"/>
+              <button id="connect" class="btn">Connect</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        var key = "5e62xgu1fv67p66r"
+        var debug = true;
+        var _id;
+        var exchange;
+        function connect(){
+            window.onbeforeunload = function(){
+                roomRef.remove();
+            }
+            initPeer();
+        }
+        
+        function initPeer(){
+            var peer = new Peer({key:key, debug: debug});
+            peer.on('open', function(id){
+                console.log(id);
+                _id = id;
+                //list id on firebase
+                document.getElementById("room_id").value = id;
+                document.getElementById("room_id").disabled = true;
+                exchange = new Exchange(id);
+            });
+            peer.on('error', function(error){
+                console.log(error);
+                throw(error);
+            });
+            
+            peer.on('connection', function(conn){
+                conn.on('open', function(){
+                     setUpDC(conn);
+                });
+            });
+            
+            document.getElementById('exchangeConnect').addEventListener('click', function(){
+                var manager = exchange.connect(document.getElementById('exchange_peer_id').value);
+                manager.pc.ondatachannel = function(evt) {
+                    console.log('Received data channel');
+                    console.log(evt);
+                    evt.channel.send("hello world");
+                };
+                var dc = manager.pc.createDataChannel("hello", { reliable: false });
+                console.log(dc);
+                dc.onopen = function(){
+                    console.log("I'm open I'm open!!!");
+                    dc.send("world hello!");
+                }
+                dc.onmessage = function(msg){
+                    console.log(msg);
+                }
+            }, false);
+            document.getElementById('connect').addEventListener('click', function(){
+                var connection = peer.connect(document.getElementById('peer_id').value);
+                connection.on('open', function(){
+                    setUpDC(connection);
+                });
+            }, false);
+        }
+
+        function setUpDC(conn){
+            exchange.connections[conn.peer] = conn._dc;
+            var manager = exchange.initDC(exchange.connections[conn.peer], conn.peer, function(pc){
+                console.log("peer connection started");
+                console.log(pc);
+                pc.ondatachannel = function(evt) {
+                    console.log('Received data channel');
+                    console.log(evt);
+                    evt.channel.onopen = function(){
+                        evt.channel.send("hello world");
+                    };
+                    evt.channel.onmessage = function(msg){
+                        console.log(msg);
+                    };
+                };
+            });
+        }
+        
+        document.getElementById('start').addEventListener('click', function(){
+            connect();
+        }, false);
+        connect();
+    </script>
+</body>
+</html>

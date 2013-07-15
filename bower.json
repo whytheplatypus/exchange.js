@@ -1,0 +1,13 @@
+{
+  "name": "exchange.js",
+  "version": "0.0.0",
+  "main": "exchange.js",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "components",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
