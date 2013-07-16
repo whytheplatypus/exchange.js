@@ -63,6 +63,9 @@ Exchange.prototype.ondata = function(data) {
 	} else if(data.type == 'reliable'){
 		this.handleReliable(data);
 	} else {
+		if(data.path.indexOf(this.id) == -1){
+			data.path.push(this.id);
+		}
 		if(this.managers[data.from] !== undefined){
 			this.managers[data.from].ondata(data);
 		} 
@@ -92,7 +95,8 @@ Exchange.prototype.forward = function(data) {
 		}
 	} else if(data.path.indexOf(this.id) > -1){
 		//the path is already set up
-		var nextPeer = data.path.indexOf(this.id)+1;
+		var nextPeer = data.path[data.path.indexOf(this.id)+1];
+		console.log(nextPeer);
 		this.connections[nextPeer].send(JSON.stringify(data));
 	}
 }
@@ -138,6 +142,7 @@ Exchange.prototype.handleReliable = function(data) {
 }
 
 Exchange.prototype.reliable = function(string, peer, path, to) {
+	console.log(peer);
 	var parts = {}
 	for(var i = 0; i < string.length; i+=512){
 		var str = string.substr(i, 512);
@@ -178,8 +183,6 @@ Exchange.prototype.emit = function(data) {
 		}
 	} else if(data.path.indexOf(this.id) > -1){
 		//the path is already set up
-		console.log(data.path);
-		console.log(data.path.indexOf(this.id));
 		var nextPeer = data.path.indexOf(this.id)+1;
 		this.reliable(JSON.stringify(data), data.path[nextPeer], data.path, data.to);
 	}
