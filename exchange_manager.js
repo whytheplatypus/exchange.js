@@ -9,12 +9,22 @@
  * @param {JSON}       options  Almost always empty (can specify a stun url that's about it)
  * @param {Function}   callback [description]
  */
-function ExchangeManager(id, peer, path, exchange, options, callback) {
+function ExchangeManager(id, peer, path, exchange, config, callback) {
 
-  if(options.config.iceServers === undefined){
-    options.config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
+  if(config.iceServers === undefined){
+    config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
   }
-  this._options = options;
+  if(config.protocol === undefined){
+    config.protocol = {
+      key: ['data'],
+      offer: 'OFFER',
+      answer: 'ANSWER',
+      candidate: 'CANDIDATE',
+      port: 'PORT'
+    }
+  }
+  this.protocol = config.protocol;
+  this._options = config;
   this.path = path;
   this._send = function(data){
     data.exchange = true;
@@ -50,19 +60,22 @@ function ExchangeManager(id, peer, path, exchange, options, callback) {
  */
 ExchangeManager.prototype.ondata = function(data) {
   this.path = data.path.reverse();
-  console.log(this.path);
-  switch(data.type) {
-    case 'OFFER':
+  var type = data;
+  for(var key in this.protocol.key){
+    type = type[this.protocol.key[key]];
+  }
+  switch(type) {
+    case this.protocol.offer:
       this.update(data.payload.labels);
       this.handleSDP(data.payload.sdp, data.type);
       break;
-    case 'ANSWER':
+    case this.protocol.answer:
       this.handleSDP(data.payload.sdp, data.type);
       break;
-    case 'CANDIDATE':
+    case this.protocol.candidate:
       this.handleCandidate(data.payload, data.type);
       break;
-    case 'PORT':
+    case this.protocol.port:
       this.handlePort(data.payload);
       break;
     default:
