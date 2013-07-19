@@ -71,7 +71,7 @@ Exchange.prototype.ondata = function(data) {
 			this.managers[data.from].ondata(data);
 		} 
 		else {
-			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {config:{}}, this.onpeerconnection);
+			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, this.onpeerconnection);
 			this.managers[data.from].ondata(data);
 		}
 	}
@@ -223,7 +223,7 @@ Exchange.prototype.emit = function(data) {
  */
 Exchange.prototype.connect = function(peer) {
 	console.log("connecting to ", peer);
-	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {config:{}}, this.onpeerconnection);
+	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {}, this.onpeerconnection);
 	return this.managers[peer];
 }
 
