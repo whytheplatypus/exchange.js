@@ -16,7 +16,7 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
   }
   if(config.protocol === undefined){
     config.protocol = {
-      key: ['data'],
+
       offer: 'OFFER',
       answer: 'ANSWER',
       candidate: 'CANDIDATE',
@@ -60,11 +60,8 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
  */
 ExchangeManager.prototype.ondata = function(data) {
   this.path = data.path.reverse();
-  var type = data;
-  for(var key in this.protocol.key){
-    type = type[this.protocol.key[key]];
-  }
-  switch(type) {
+  
+  switch(data.type) {
     case this.protocol.offer:
       this.update(data.payload.labels);
       this.handleSDP(data.payload.sdp, data.type);

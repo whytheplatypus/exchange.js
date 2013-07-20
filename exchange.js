@@ -20,7 +20,7 @@ var Exchange = function(id, onpeerconnection){
 	if(arguments.length > 1){
 		this.connections = arguments[1];
 		for(var peer in this.connections){
-			this.initDC(this.connections[peer], peer, this.onpeerconnection);
+			this.initDC(this.connections[peer]);
 		}
 	} else {
 		/**
@@ -29,6 +29,7 @@ var Exchange = function(id, onpeerconnection){
 		 */
 		this.connections = {};
 	}
+	this.servers = [];
 	
 	this.messages = {};
 }
@@ -38,7 +39,7 @@ var Exchange = function(id, onpeerconnection){
  * @param  {DataChannel} dc The datachannel used to send exchange information
  * 
  */
-Exchange.prototype.initDC = function(dc, peer, callback) {
+Exchange.prototype.initDC = function(dc) {
 	var self = this;
 
 	var datacallback = dc.onmessage;
@@ -54,9 +55,36 @@ Exchange.prototype.initDC = function(dc, peer, callback) {
 }
 
 /**
+ * [ description]
+ * @todo  test open.
+ * @todo  data specific protocol names
+ * @todo  let ignore be an array
+ * @param  {[type]} ws       [description]
+ * @param  {[type]} protocol [description]
+ */
+Exchange.prototype.initWS = function(ws, protocol) {
+	var self = this;
+	ws.onmessage = function(e){
+		var initialData = JSON.parse(e.data);
+		console.log(initialData);
+		var data = {
+			to: initialData[protocol.to],
+			from: initialData[protocol.from],
+			path: [],
+			type: initialData[protocol.type],
+			payload: initialData[protocol.payload],
+		};
+		if(initialData.type != protocol.ignore){
+			self.ondata(data);
+		}
+		
+	}
+	this.servers.push(ws);
+}
+
+/**
  * Route exchange data to the correct ExchangeManager
  * @param  {JSON} data The JSON object to be routed
- * 
  */
 Exchange.prototype.ondata = function(data) {
 	if(data.to != this.id){
@@ -207,6 +235,11 @@ Exchange.prototype.emit = function(data) {
 			if(data.path.indexOf(peer) == -1){
 				this.reliable(JSON.stringify(data), peer, data.path, data.to);
 			}
+		}
+		for(var server in this.servers){
+			console.log(data);
+			console.log(this.servers[server]);
+			this.servers[server].send(JSON.stringify(data));
 		}
 	} else if(data.path.indexOf(this.id) > -1){
 		//the path is already set up
