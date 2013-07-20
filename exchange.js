@@ -227,9 +227,12 @@ Exchange.prototype.connect = function(peer) {
 	return this.managers[peer];
 }
 
-//@todo keep track of jumps and time out a request after some number
-//@todo identify all requests with a md5 hash
-//@todo custom error objects
-//@todo fix it so already broken up chunks get forwarded
-//@todo make it so we only start sending ice candidtates after we get an answer?
-//@todo verify that a packet has all the correct attributes set. (to, from, path).
+
+/**
+ * @todo keep track of jumps and time out a request after some number
+ * @todo identify all requests with a md5 hash
+ * @todo custom error objects
+ * @todo fix it so already broken up chunks get forwarded
+ * @todo make it so we only start sending ice candidtates after we get an answer?
+ * @todo verify that a packet has all the correct attributes set. (to, from, path).
+ */
