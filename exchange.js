@@ -1,8 +1,15 @@
 
 /**
- * The Exchange class, creates an manages peer exchange logic accross a provided dc.
+ * The Exchange class, creates and manages peer exchange logic.
  * @constructor
  * @param  {String} id The id used to identify the local machiene
+ *
+ * @todo keep track of jumps and time out a request after some number
+ * @todo identify all requests with a md5 hash
+ * @todo custom error objects
+ * @todo fix it so already broken up chunks get forwarded
+ * @todo make it so we only start sending ice candidtates after we get an answer?
+ * @todo verify that a packet has all the correct attributes set. (to, from, path).
  */
 var Exchange = function(id, onpeerconnection){
 	var self = this;
@@ -11,7 +18,7 @@ var Exchange = function(id, onpeerconnection){
 	this.onpeerconnection = onpeerconnection;
 
     /**
-     * [managers description]
+     * {peer: ExchangeManager} pairs
      * @type {Object}
      */
     this.managers = {};
@@ -19,7 +26,7 @@ var Exchange = function(id, onpeerconnection){
 	if(arguments.length > 2){
 		this.connections = arguments[2];
 		for(var peer in this.connections){
-			this.initDC(this.connections[peer]);
+			this.addDC(this.connections[peer], peer);
 		}
 	} else {
 		/**
@@ -30,22 +37,33 @@ var Exchange = function(id, onpeerconnection){
 	}
 
 	/**
-	 * [servers description]
+	 * Array of connected websocket servers their protocols eg. [{socket: ws, 
+	 *   protocol:{
+	 * 		to: 'to',
+     *      from: 'from',
+     *      type: 'type',
+     *      payload: 'payload',
+     *      ignore: 'OPEN',
+     *      offer: 'OFFER',
+     *      answer: 'ANSWER',
+     *      candidate: 'CANDIDATE',
+     *      port: 'PORT'
+	 *   }
+	 * }]
 	 * @type {Array}
 	 */
 	this.servers = [];
 	
 	/**
-	 * [messages description]
+	 * The currently building messages from reliable. {hash: [chunks], }
 	 * @type {Object}
 	 */
 	this.messages = {};
 
 	/**
-	 * [ description]
-	 * @param  {[type]} message [description]
-	 * @param  {[type]} peer    [description]
-	 * @return {[type]}         [description]
+	 * Local send wrapper.
+	 * @param  {String} message The String to be sent.
+	 * @param  {String} peer    The name of the datachannel in this.connections to send the message along.
 	 */
 	this._send = function(message, peer){
 		try{
@@ -53,11 +71,6 @@ var Exchange = function(id, onpeerconnection){
 				self.connections[peer].send(message);
 			}
 		} catch(e){
-			var problemDC = self.connections[peer];
-			console.log(problemDC);
-			console.log(peer);
-			var problemMessage = message;
-			console.log(problemMessage);
 			console.log(e);
 		}
 	}
@@ -68,12 +81,12 @@ var Exchange = function(id, onpeerconnection){
  * @param  {DataChannel} dc The datachannel used to send exchange information
  * 
  */
-Exchange.prototype.initDC = function(dc) {
+Exchange.prototype.addDC = function(dc, peer) {
 	var self = this;
 
 	var datacallback = dc.onmessage;
+	var errorcallback = dc.onerror;
 	dc.onmessage = function(e){
-		console.log(e);
 		var data = e.data;
 		var keepParsing = true;
 		while(keepParsing){
@@ -86,18 +99,27 @@ Exchange.prototype.initDC = function(dc) {
 		if(data.exchange !== undefined){
 			self.ondata(data);
 		} else {
-			datacallback(e);
+			if(typeof datacallback === 'function'){
+				datacallback(e);
+			}
 		}
 	}
+	dc.onerror = function(e){
+		console.log('ERROR: ', e);
+		if(typeof errorcallback === 'function'){
+			errorcallback(e);
+		}
+    }
+	self.connections[peer] = dc;
 }
 
 /**
- * [ description]
+ * Add a websocket server to the list of servers.
  * @todo  test open.
  * @todo  data specific protocol names
  * @todo  let ignore be an array
- * @param  {[type]} ws       [description]
- * @param  {[type]} protocol [description]
+ * @param  {WebSocket} ws       An open websocket connection.
+ * @param  {Object}    protocol The translation from our protocol to theirs.
  */
 Exchange.prototype.initWS = function(ws, protocol) {
 	var self = this;
@@ -302,14 +324,11 @@ Exchange.prototype.emit = function(data, to, path) {
 			//translate from exchange speak to server speak
 			var server = this.servers[i];
 			if(server.socket.readyState == 1){
-				console.log(server);
 				var serverData = {}
 				serverData[server.protocol.to] = to;
 				serverData[server.protocol.from] = this.id;
 				serverData[server.protocol.type] = data.type;
 				serverData[server.protocol.payload] = data.payload;
-				console.log('sending to ', server.socket);
-				console.log(serverData);
 				server.socket.send(JSON.stringify(serverData));
 			}
 		}
@@ -331,13 +350,3 @@ Exchange.prototype.connect = function(peer) {
 	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {}, this.onpeerconnection);
 	return this.managers[peer];
 }
-
-
-/**
- * @todo keep track of jumps and time out a request after some number
- * @todo identify all requests with a md5 hash
- * @todo custom error objects
- * @todo fix it so already broken up chunks get forwarded
- * @todo make it so we only start sending ice candidtates after we get an answer?
- * @todo verify that a packet has all the correct attributes set. (to, from, path).
- */

@@ -47,7 +47,7 @@
     
     
     <div class="description">
-        The Exchange class, creates an manages peer exchange logic accross a provided dc.
+        The Exchange class, creates and manages peer exchange logic.
     </div>
     
 
@@ -128,7 +128,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line8">line 8</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line14">line 14</a>
     </li></ul></dd>
     
     
@@ -136,6 +136,23 @@
     
     
     
+    
+    <dt class="tag-todo">To Do:</dt>
+    <dd class="tag-todo">
+        <ul>
+            <li>keep track of jumps and time out a request after some number</li>
+        
+            <li>identify all requests with a md5 hash</li>
+        
+            <li>custom error objects</li>
+        
+            <li>fix it so already broken up chunks get forwarded</li>
+        
+            <li>make it so we only start sending ice candidtates after we get an answer?</li>
+        
+            <li>verify that a packet has all the correct attributes set. (to, from, path).</li>
+        </ul>
+    </dd>
     
 </dl>
 
@@ -218,7 +235,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line30">line 30</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line36">line 36</a>
     </li></ul></dd>
     
     
@@ -243,7 +260,7 @@
 <dd>
     
     <div class="description">
-        [managers description]
+        {peer: ExchangeManager} pairs
     </div>
     
     
@@ -282,7 +299,147 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line18">line 18</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line24">line 24</a>
+    </li></ul></dd>
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <h4 class="name" id="messages"><span class="type-signature"></span>messages<span class="type-signature"> :Object</span></h4>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        The currently building messages from reliable. {hash: [chunks], }
+    </div>
+    
+    
+    
+        <h5>Type:</h5>
+        <ul>
+            <li>
+                
+<span class="param-type">Object</span>
+
+
+            </li>
+        </ul>
+    
+
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line61">line 61</a>
+    </li></ul></dd>
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <h4 class="name" id="servers"><span class="type-signature"></span>servers<span class="type-signature"> :Array</span></h4>
+    
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        Array of connected websocket servers their protocols eg. [{socket: ws, 
+  protocol:{
+		to: 'to',
+     from: 'from',
+     type: 'type',
+     payload: 'payload',
+     ignore: 'OPEN',
+     offer: 'OFFER',
+     answer: 'ANSWER',
+     candidate: 'CANDIDATE',
+     port: 'PORT'
+  }
+}]
+    </div>
+    
+    
+    
+        <h5>Type:</h5>
+        <ul>
+            <li>
+                
+<span class="param-type">Array</span>
+
+
+            </li>
+        </ul>
+    
+
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line55">line 55</a>
     </li></ul></dd>
     
     
@@ -304,6 +461,263 @@
         <h3 class="subsection-title">Methods</h3>
         
         <dl>
+            
+<dt>
+    <h4 class="name" id="_send"><span class="type-signature"></span>_send<span class="signature">(message, peer)</span><span class="type-signature"></span></h4>
+    
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        Local send wrapper.
+    </div>
+    
+
+    
+    
+    
+    
+    
+        <h5>Parameters:</h5>
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>message</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last">The String to be sent.</td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>peer</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last">The name of the datachannel in this.connections to send the message along.</td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line68">line 68</a>
+    </li></ul></dd>
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <h4 class="name" id="addDC"><span class="type-signature"></span>addDC<span class="signature">(dc)</span><span class="type-signature"></span></h4>
+    
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        setup a new datachannel to be used for exchange.
+    </div>
+    
+
+    
+    
+    
+    
+    
+        <h5>Parameters:</h5>
+        
+
+<table class="params">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+		
+		<th>Type</th>
+		
+		
+		
+		
+		
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+	
+	<tbody>
+	
+	
+        <tr>
+            
+                <td class="name"><code>dc</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">DataChannel</span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last">The datachannel used to send exchange information</td>
+        </tr>
+	
+	
+	</tbody>
+</table>
+    
+    
+    
+<dl class="details">
+    
+        
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line84">line 84</a>
+    </li></ul></dd>
+    
+    
+    
+    
+    
+    
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
             
 <dt>
     <h4 class="name" id="connect"><span class="type-signature"></span>connect<span class="signature">(id)</span><span class="type-signature"> &rarr; {<a href="ExchangeManager.html">ExchangeManager</a>}</span></h4>
@@ -395,7 +809,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line224">line 224</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line348">line 348</a>
     </li></ul></dd>
     
     
@@ -535,7 +949,7 @@ The packet needs to have the "to" "from" and "path" attributes already set.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line190">line 190</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line302">line 302</a>
     </li></ul></dd>
     
     
@@ -543,6 +957,13 @@ The packet needs to have the "to" "from" and "path" attributes already set.
     
     
     
+    
+    <dt class="tag-todo">To Do:</dt>
+    <dd class="tag-todo">
+        <ul>
+            <li>translate server data to and from exchange data with _.map or something similar.</li>
+        </ul>
+    </dd>
     
 </dl>
 
@@ -656,7 +1077,7 @@ the data.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line89">line 89</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line183">line 183</a>
     </li></ul></dd>
     
     
@@ -774,7 +1195,7 @@ labled by md5 hashes.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line120">line 120</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line217">line 217</a>
     </li></ul></dd>
     
     
@@ -802,7 +1223,7 @@ labled by md5 hashes.
         
             
 <dt>
-    <h4 class="name" id="initDC"><span class="type-signature"></span>initDC<span class="signature">(dc)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="initWS"><span class="type-signature"></span>initWS<span class="signature">(ws, protocol)</span><span class="type-signature"></span></h4>
     
     
 </dt>
@@ -810,7 +1231,7 @@ labled by md5 hashes.
     
     
     <div class="description">
-        setup a new datachannel to be used for exchange.
+        Add a websocket server to the list of servers.
     </div>
     
 
@@ -844,13 +1265,13 @@ labled by md5 hashes.
 	
         <tr>
             
-                <td class="name"><code>dc</code></td>
+                <td class="name"><code>ws</code></td>
             
             
             <td class="type">
             
                 
-<span class="param-type">DataChannel</span>
+<span class="param-type">WebSocket</span>
 
 
             
@@ -860,7 +1281,30 @@ labled by md5 hashes.
             
             
             
-            <td class="description last">The datachannel used to send exchange information</td>
+            <td class="description last">An open websocket connection.</td>
+        </tr>
+	
+	
+	
+        <tr>
+            
+                <td class="name"><code>protocol</code></td>
+            
+            
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+            
+            
+            
+            
+            
+            <td class="description last">The translation from our protocol to theirs.</td>
         </tr>
 	
 	
@@ -891,7 +1335,7 @@ labled by md5 hashes.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line41">line 41</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line124">line 124</a>
     </li></ul></dd>
     
     
@@ -899,6 +1343,17 @@ labled by md5 hashes.
     
     
     
+    
+    <dt class="tag-todo">To Do:</dt>
+    <dd class="tag-todo">
+        <ul>
+            <li>test open.</li>
+        
+            <li>data specific protocol names</li>
+        
+            <li>let ignore be an array</li>
+        </ul>
+    </dd>
     
 </dl>
 
@@ -1008,7 +1463,7 @@ labled by md5 hashes.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line61">line 61</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line155">line 155</a>
     </li></ul></dd>
     
     
@@ -1195,7 +1650,7 @@ and sends them out
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line169">line 169</a>
+        <a href="exchange.js.html">exchange.js</a>, <a href="exchange.js.html#line270">line 270</a>
     </li></ul></dd>
     
     
@@ -1242,7 +1697,7 @@ and sends them out
 <br clear="both">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.2.0</a> on Fri Jul 19 2013 10:32:28 GMT-0700 (PDT)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.2.0</a> on Tue Jul 23 2013 09:16:00 GMT-0700 (PDT)
 </footer>
 
 <script> prettyPrint(); </script>

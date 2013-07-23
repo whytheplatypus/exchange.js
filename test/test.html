@@ -71,9 +71,9 @@
                         console.log('Received data channel');
                         console.log(evt);
                         evt.channel.onopen = function(){
+                            exchange.addDC(evt.channel, peer);
                             evt.channel.send("hello world");
-                            exchange.connections[peer] = evt.channel;
-                            exchange.initDC(exchange.connections[peer]);
+                            
                         };
                         evt.channel.onmessage = function(msg){
                             console.log(msg);
@@ -105,9 +105,9 @@
                 }
                 dc.onopen = function(){
                     console.log("I'm open I'm open!!!");
+                    exchange.addDC(dc, manager.peer);
                     dc.send("world hello!");
-                    exchange.connections[manager.peer] = dc;
-                    exchange.initDC(exchange.connections[manager.peer]);
+                    
                 }
                 dc.onmessage = function(msg){
                     console.log(msg);
