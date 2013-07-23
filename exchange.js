@@ -1,5 +1,6 @@
 
-
+var problemDC;
+var problemMessage;
 /**
  * The Exchange class, creates an manages peer exchange logic accross a provided dc.
  * @constructor
@@ -32,6 +33,16 @@ var Exchange = function(id, onpeerconnection){
 	this.servers = [];
 	
 	this.messages = {};
+
+	this._send = function(message, peer){
+		try{
+			self.connections[peer].send(message);
+		} catch(e){
+			problemDC = self.connections[peer];
+			problemMessage = message;
+			console.log(problemMessage);
+		}
+	}
 }
 
 /**
@@ -44,11 +55,19 @@ Exchange.prototype.initDC = function(dc) {
 
 	var datacallback = dc.onmessage;
 	dc.onmessage = function(e){
-		var data = JSON.parse(e.data);
-		//console.log(data);
-		if(data.exchange){
-			self.ondata(data);
-		} else {
+		console.log(e);
+		var data = e.data;
+		try{
+			data = JSON.parse(data);
+			//console.log(data);
+			if(data.exchange !== undefined){
+				self.ondata(data);
+			} else {
+				datacallback(e);
+			}
+		} catch(error){
+			console.log("parse error");
+			console.log(e);
 			datacallback(e);
 		}
 	}
@@ -65,21 +84,28 @@ Exchange.prototype.initDC = function(dc) {
 Exchange.prototype.initWS = function(ws, protocol) {
 	var self = this;
 	ws.onmessage = function(e){
+		console.log(e);
+
 		var initialData = JSON.parse(e.data);
 		console.log(initialData);
+		//translate from server speak to exchange speak
 		var data = {
 			to: initialData[protocol.to],
 			from: initialData[protocol.from],
 			path: [],
 			type: initialData[protocol.type],
 			payload: initialData[protocol.payload],
+			protocol: protocol
 		};
 		if(initialData.type != protocol.ignore){
 			self.ondata(data);
 		}
 		
 	}
-	this.servers.push(ws);
+	ws.onclose = function(e){
+
+	}
+	this.servers.push({socket: ws, protocol: protocol});
 }
 
 /**
@@ -96,7 +122,7 @@ Exchange.prototype.ondata = function(data) {
 			data.path.push(this.id);
 		}
 		if(this.managers[data.from] !== undefined){
-			this.managers[data.from].ondata(data);
+			this.managers[data.from].ondata(data, data.path);
 		} 
 		else {
 			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, this.onpeerconnection);
@@ -120,7 +146,8 @@ Exchange.prototype.forward = function(data) {
 		if(data.path.indexOf(this.id) == -1){
 			data.path.push(this.id);
 		}
-		this.connections[data.to].send(JSON.stringify(data));
+		//this.connections[data.to].send(JSON.stringify(data));
+		this._send(JSON.stringify(data), data.to);
 	} else if(data.path.indexOf(this.id)+1 == data.path.length || data.path.indexOf(this.id) == -1){
 		if(data.path.indexOf(this.id) == -1){
 			data.path.push(this.id);
@@ -128,14 +155,16 @@ Exchange.prototype.forward = function(data) {
 		for(var peer in this.connections){
 			//don't send it back down the path
 			if(data.path.indexOf(peer) == -1){
-				this.connections[peer].send(JSON.stringify(data));
+				this._send(JSON.stringify(data), peer);
+				//this.connections[peer].send(JSON.stringify(data));
 			}
 		}
 	} else if(data.path.indexOf(this.id) > -1){
 		//the path is already set up
 		var nextPeer = data.path[data.path.indexOf(this.id)+1];
 		console.log(nextPeer);
-		this.connections[nextPeer].send(JSON.stringify(data));
+		this._send(JSON.stringify(data), nextPeer);
+		//this.connections[nextPeer].send(JSON.stringify(data));
 	}
 }
 
@@ -146,40 +175,35 @@ Exchange.prototype.forward = function(data) {
  * 
  */
 Exchange.prototype.handleReliable = function(data) {
-	if(data.hasOwnProperty('hashes')){
-		var keysString = data.hashes.join("/");
-		this.messages[keysString] = {};
-		for(var i = 0; i < data.hashes.length; i++){
-			this.messages[keysString][data.hashes[i]] = false;
+	if(data.hasOwnProperty('hash')){
+		if(this.messages[data.hash] === undefined && data.hasOwnProperty('count')){
+			this.messages[data.hash] = new Array(data.count);
 		}
-	} else if(data.hasOwnProperty('hash')){
-		//can check the hash here if we want
-		//if(md5(data.data) == hash){}
-		for(var keys in this.messages){
-			//console.log(keys);
-			if(keys.indexOf(data.hash) > -1){
-				this.messages[keys][data.hash] = data.data;
-				var ready = true;
-				for(var hash in this.messages[keys]){
-					// console.log(hash);
-					// console.log(this.messages[keys][hash]);
-					ready = ready && this.messages[keys][hash];
-					//console.log(ready);
-				}
-				if(ready){
-					//cleanup
-					var newdata = "";
-					for(var hash in this.messages[keys]){
-						newdata += this.messages[keys][hash];
-					}
-					this.messages[keys] = null;
-					delete this.messages[keys];
-					//console.log(data);
-					newdata = JSON.parse(newdata);
-					newdata.path = data.path;
-					this.ondata(newdata);
-				}
-			}		
+		if(data.hasOwnProperty('data')){
+			this.messages[data.hash][parseInt(data.key)] = data.data;
+		}
+		var ready = true;
+		for(var chunk in this.messages[data.hash]){
+			// console.log(hash);
+			// console.log(this.messages[keys][hash]);
+			ready = ready && (this.messages[data.hash][chunk].length > 0);
+			//console.log(ready);
+		}
+		if(ready){
+			//cleanup
+			var newdata = "";
+			for(var hash in this.messages[keys]){
+				newdata += this.messages[keys][hash];
+			}
+			this.messages[data.hash] = null;
+			delete this.messages[data.hash];
+			//console.log(data);
+			newdata = JSON.parse(newdata);
+			newdata.path = data.path;
+			newdata.from = data.from;
+			newdata.to = data.to;
+
+			this.ondata(newdata);
 		}
 		
 	}
@@ -196,15 +220,25 @@ Exchange.prototype.handleReliable = function(data) {
  */
 Exchange.prototype.reliable = function(string, peer, path, to) {
 	console.log(peer);
-	var parts = {}
+	var self = this;
+	var parts = [];
+	var hash = md5(string);
+	console.log(hash);
 	for(var i = 0; i < string.length; i+=512){
 		var str = string.substr(i, 512);
-		parts[md5(str)] = str;
+		parts.push(str);
 	}
+	// console.log(this.connections[peer]);
+	
+	var partsPacket = {exchange: "true", type:"reliable", path:path, from:this.id, to:to, hash: hash, count:parts.length};
 
-	this.connections[peer].send(JSON.stringify({exchange: true, type:'reliable', path:path, from:this.id, to:to, hashes: Object.keys(parts)}));
+	this._send(JSON.stringify(partsPacket), peer);
+	//this.connections[peer].send(JSON.stringify(partsPacket));
+	
 	for(var key in parts){
-		this.connections[peer].send(JSON.stringify({exchange: true, type:'reliable', path:path, from:this.id, to:to, hash: key, data: parts[key]}));
+		var part = {exchange: "true", type:"reliable", path:path, from:this.id, to:to, hash: hash, key:key, data: parts[key]};
+		this._send(JSON.stringify(part), peer);
+		//this.connections[peer].send(JSON.stringify(part));
 	}
 }
 
@@ -213,38 +247,49 @@ Exchange.prototype.reliable = function(string, peer, path, to) {
  * The packet needs to have the "to" "from" and "path" attributes already set.
  * 
  * @param  {JSON} data The data packet to be sent
- * 
+ *
+ * @todo  translate server data to and from exchange data with _.map or something similar.
  */
-Exchange.prototype.emit = function(data) {
+Exchange.prototype.emit = function(data, to, path) {
 	
-	if(data.path.indexOf(data.to)+1 == data.path.length && data.path.indexOf(this.id) == -1){
-		data.path.unshift(this.id);
+	if(path.indexOf(to)+1 == path.length && path.indexOf(this.id) == -1){
+		path.unshift(this.id);
 	}
-	if(this.connections[data.to] !== undefined){
-		if(data.path.indexOf(this.id) == -1){
-			data.path.push(this.id);
+	if(this.connections[to] !== undefined){
+		if(path.indexOf(this.id) == -1){
+			path.push(this.id);
 		}
-		this.reliable(JSON.stringify(data), data.to, data.path, data.to);
-	} else if(data.path.indexOf(this.id)+1 == data.path.length || data.path.indexOf(this.id) == -1){
-		if(data.path.indexOf(this.id) == -1){
-			data.path.push(this.id);
+		this.reliable(JSON.stringify(data), to, path, to);
+	} else if(path.indexOf(this.id)+1 == path.length || path.indexOf(this.id) == -1){
+		if(path.indexOf(this.id) == -1){
+			path.push(this.id);
 		}
 	
 		for(var peer in this.connections){
 			//don't send it back down the path
-			if(data.path.indexOf(peer) == -1){
-				this.reliable(JSON.stringify(data), peer, data.path, data.to);
+			if(path.indexOf(peer) == -1){
+				this.reliable(JSON.stringify(data), peer, [], to);
 			}
 		}
-		for(var server in this.servers){
-			console.log(data);
-			console.log(this.servers[server]);
-			this.servers[server].send(JSON.stringify(data));
+		for(var i = 0; i < this.servers.length; i++){
+			//translate from exchange speak to server speak
+			var server = this.servers[i];
+			if(server.socket.readyState == 1){
+				console.log(server);
+				var serverData = {}
+				serverData[server.protocol.to] = to;
+				serverData[server.protocol.from] = this.id;
+				serverData[server.protocol.type] = data.type;
+				serverData[server.protocol.payload] = data.payload;
+				console.log('sending to ', server.socket);
+				console.log(serverData);
+				server.socket.send(JSON.stringify(serverData));
+			}
 		}
-	} else if(data.path.indexOf(this.id) > -1){
+	} else if(path.indexOf(this.id) > -1){
 		//the path is already set up
-		var nextPeer = data.path.indexOf(this.id)+1;
-		this.reliable(JSON.stringify(data), data.path[nextPeer], data.path, data.to);
+		var nextPeer = path.indexOf(this.id)+1;
+		this.reliable(JSON.stringify(data), path[nextPeer], path, to);
 	}
 	
 }
