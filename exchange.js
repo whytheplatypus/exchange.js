@@ -1,6 +1,4 @@
 
-var problemDC;
-var problemMessage;
 /**
  * The Exchange class, creates an manages peer exchange logic accross a provided dc.
  * @constructor
@@ -18,8 +16,8 @@ var Exchange = function(id, onpeerconnection){
      */
     this.managers = {};
     
-	if(arguments.length > 1){
-		this.connections = arguments[1];
+	if(arguments.length > 2){
+		this.connections = arguments[2];
 		for(var peer in this.connections){
 			this.initDC(this.connections[peer]);
 		}
@@ -30,17 +28,37 @@ var Exchange = function(id, onpeerconnection){
 		 */
 		this.connections = {};
 	}
+
+	/**
+	 * [servers description]
+	 * @type {Array}
+	 */
 	this.servers = [];
 	
+	/**
+	 * [messages description]
+	 * @type {Object}
+	 */
 	this.messages = {};
 
+	/**
+	 * [ description]
+	 * @param  {[type]} message [description]
+	 * @param  {[type]} peer    [description]
+	 * @return {[type]}         [description]
+	 */
 	this._send = function(message, peer){
 		try{
-			self.connections[peer].send(message);
+			if(self.connections[peer].readyState == 'open'){
+				self.connections[peer].send(message);
+			}
 		} catch(e){
-			problemDC = self.connections[peer];
-			problemMessage = message;
+			var problemDC = self.connections[peer];
+			console.log(problemDC);
+			console.log(peer);
+			var problemMessage = message;
 			console.log(problemMessage);
+			console.log(e);
 		}
 	}
 }
@@ -57,17 +75,17 @@ Exchange.prototype.initDC = function(dc) {
 	dc.onmessage = function(e){
 		console.log(e);
 		var data = e.data;
-		try{
-			data = JSON.parse(data);
-			//console.log(data);
-			if(data.exchange !== undefined){
-				self.ondata(data);
-			} else {
-				datacallback(e);
+		var keepParsing = true;
+		while(keepParsing){
+			try{
+				data = JSON.parse(data);
+			} catch(error){
+				keepParsing = false;
 			}
-		} catch(error){
-			console.log("parse error");
-			console.log(e);
+		}
+		if(data.exchange !== undefined){
+			self.ondata(data);
+		} else {
 			datacallback(e);
 		}
 	}
@@ -176,28 +194,37 @@ Exchange.prototype.forward = function(data) {
  */
 Exchange.prototype.handleReliable = function(data) {
 	if(data.hasOwnProperty('hash')){
-		if(this.messages[data.hash] === undefined && data.hasOwnProperty('count')){
-			this.messages[data.hash] = new Array(data.count);
+		if(data.hasOwnProperty('count')){
+			this.messages[data.hash] = [];
+			console.log(parseInt(data.count));
+			for(var i = 0; i < parseInt(data.count); i++){
+				this.messages[data.hash][i] = false;
+			}
+			console.log("setting up messages");
+			console.log(this.messages);
 		}
 		if(data.hasOwnProperty('data')){
+			console.log(parseInt(data.key));
+			console.log(this.messages);
 			this.messages[data.hash][parseInt(data.key)] = data.data;
 		}
 		var ready = true;
-		for(var chunk in this.messages[data.hash]){
+		for(var i = 0; i < this.messages[data.hash].length; i++){
 			// console.log(hash);
 			// console.log(this.messages[keys][hash]);
-			ready = ready && (this.messages[data.hash][chunk].length > 0);
+			ready = ready && (this.messages[data.hash][i]);
 			//console.log(ready);
 		}
 		if(ready){
 			//cleanup
 			var newdata = "";
-			for(var hash in this.messages[keys]){
-				newdata += this.messages[keys][hash];
+			for(var i = 0; i < this.messages[data.hash].length; i++){
+				newdata += this.messages[data.hash][i];
 			}
 			this.messages[data.hash] = null;
 			delete this.messages[data.hash];
 			//console.log(data);
+			console.log(newdata);
 			newdata = JSON.parse(newdata);
 			newdata.path = data.path;
 			newdata.from = data.from;

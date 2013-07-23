@@ -65,7 +65,7 @@
             document.getElementById('room_id').value = id;
             _socket.onopen = function(){
                 exchange = new Exchange(id, function(pc, peer){
-                    console.log("peer connection started");
+                    console.log("peer connection started with ", peer);
                     console.log(pc);
                     pc.ondatachannel = function(evt) {
                         console.log('Received data channel');
@@ -99,15 +99,15 @@
             
             document.getElementById('exchangeConnect').addEventListener('click', function(){
                 var manager = exchange.connect(document.getElementById('exchange_peer_id').value);
-                var dc = manager.pc.createDataChannel("hello", { reliable: false });
+                var dc = manager.pc.createDataChannel(manager.peer, { reliable: false });
                 dc.onerror = function(e){
                     console.log('ERROR: ', e);
                 }
                 dc.onopen = function(){
                     console.log("I'm open I'm open!!!");
                     dc.send("world hello!");
-                    exchange.connections[manager.id] = dc;
-                    exchange.initDC(exchange.connections[manager.id]);
+                    exchange.connections[manager.peer] = dc;
+                    exchange.initDC(exchange.connections[manager.peer]);
                 }
                 dc.onmessage = function(msg){
                     console.log(msg);
