@@ -10,13 +10,13 @@
  * @param {Function}   callback [description]
  */
 function ExchangeManager(id, peer, path, exchange, config, callback) {
-
+  var self = this;
   if(config.iceServers === undefined){
     config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
   }
   if(config.protocol === undefined){
     config.protocol = {
-      key: ['data'],
+
       offer: 'OFFER',
       answer: 'ANSWER',
       candidate: 'CANDIDATE',
@@ -27,11 +27,7 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
   this._options = config;
   this.path = path;
   this._send = function(data){
-    data.exchange = true;
-    data.path = this.path;
-    data.from = id;
-    data.to = peer;
-    exchange.emit(data);
+    exchange.emit(data, peer, self.path);
   };
   this.id = id; //local peer
   this.peer = peer; //remote peer
@@ -46,7 +42,7 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
   if(typeof(callback) == "function"){
     this.onpeerconnection = callback;
   } else {
-    this.onpeerconnection = function(pc){};
+    this.onpeerconnection = function(pc, peer){};
   }
 
   if (!!this.id) {
@@ -58,13 +54,11 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
  * Handle handshake data.
  * @param  {JSON} data
  */
-ExchangeManager.prototype.ondata = function(data) {
-  this.path = data.path.reverse();
-  var type = data;
-  for(var key in this.protocol.key){
-    type = type[this.protocol.key[key]];
+ExchangeManager.prototype.ondata = function(data, path) {
+  if(path !== undefined){
+    this.path = path.reverse();
   }
-  switch(type) {
+  switch(data.type) {
     case this.protocol.offer:
       this.update(data.payload.labels);
       this.handleSDP(data.payload.sdp, data.type);
@@ -120,7 +114,7 @@ ExchangeManager.prototype.initialize = function(id) {
 ExchangeManager.prototype._startPeerConnection = function() {
   console.log("starting PC");
   this.pc = new RTCPeerConnection(this._options.config, { optional: [ { RtpDataChannels: true } ]});
-  this.onpeerconnection(this.pc);
+  this.onpeerconnection(this.pc, this.peer);
 };
 
 /** Set up ICE candidate handlers. */
@@ -155,11 +149,11 @@ ExchangeManager.prototype._makeAnswer = function() {
         }
       });
     }, function(err) {
-      throw err;
+      //throw err;
       console.log('Failed to setLocalDescription from PEX, ', err); //why is this fireing on the broker?
     });
   }, function(err) {
-    throw err;
+    //throw err;
     console.log('Failed to create answer, ', err);
   });
 };
@@ -198,7 +192,7 @@ ExchangeManager.prototype._makeOffer = function() {
       // We can now reset labels because all info has been communicated.
       self.labels = {};
     }, function handleError(err) {
-      throw err;
+      //throw err;
       console.log('Failed to setLocalDescription, ', err);
     });
   });
@@ -229,7 +223,7 @@ ExchangeManager.prototype.handleSDP = function(sdp, type) {
       self._makeAnswer();
     }
   }, function(err) {
-    throw err;
+    //throw err;
     console.log('Failed to setRemoteDescription, ', err);
   });
 };
