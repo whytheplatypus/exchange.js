@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Untitled Document</title>
-    <!--
+    
     <script src="../exchange_manager.js"></script>
     <script src="../exchange.js"></script>
     <script src="../md5.js"></script>
-    -->
-    <script type="text/javascript" src="../exchange.min.js"></script>
+    
+    <!--<script type="text/javascript" src="../exchange.min.js"></script>-->
     <script src="http://cdn.peerjs.com/0/peer.min.js"></script>
     
     <style>
@@ -48,80 +48,89 @@
         </div>
     </div>
     <script>
-        var key = "5e62xgu1fv67p66r"
+        var key = "peerjs";//"5e62xgu1fv67p66r";
+        var host = 'localhost';
+        var port = 8000;
         var debug = true;
+        var token = Math.random().toString(36).substr(2);
         var _id;
         var exchange;
-        function connect(){
-            window.onbeforeunload = function(){
-                roomRef.remove();
-            }
-            initPeer();
+        function connect(id){
+            initPeer(id);
         }
         
-        function initPeer(){
-            var peer = new Peer({key:key, debug: debug});
-            peer.on('open', function(id){
-                console.log(id);
-                _id = id;
-                //list id on firebase
-                document.getElementById("room_id").value = id;
-                document.getElementById("room_id").disabled = true;
-                exchange = new Exchange(id, function(pc){
-                    console.log("peer connection started");
+        function initPeer(id){
+            var peerjsServer = 'ws://' + host + ':' + port + '/peerjs?key='+key+'&id='+id+'&token='+token;
+            var _socket = new WebSocket(peerjsServer);
+            document.getElementById('room_id').value = id;
+            _socket.onopen = function(){
+                exchange = new Exchange(id, function(pc, peer){
+                    console.log("peer connection started with ", peer);
                     console.log(pc);
                     pc.ondatachannel = function(evt) {
                         console.log('Received data channel');
                         console.log(evt);
                         evt.channel.onopen = function(){
+                            exchange.addDC(evt.channel, peer);
                             evt.channel.send("hello world");
+                            
                         };
                         evt.channel.onmessage = function(msg){
                             console.log(msg);
                         };
+                        evt.channel.onerror = function(e){
+                            console.log('ERROR: ', e);
+                        }
+                        
                     };
                 });
-            });
-            peer.on('error', function(error){
-                console.log(error);
-                throw(error);
-            });
-            
-            peer.on('connection', function(conn){
-                conn.on('open', function(){
-                     setUpDC(conn);
+                exchange.initWS(_socket, {
+                    to: 'dst',
+                    from: 'src',
+                    type: 'type',
+                    payload: 'payload',
+                    ignore: 'OPEN',
+                    offer: 'OFFER',
+                    answer: 'ANSWER',
+                    candidate: 'CANDIDATE',
+                    port: 'PORT'
                 });
-            });
+            }
             
             document.getElementById('exchangeConnect').addEventListener('click', function(){
                 var manager = exchange.connect(document.getElementById('exchange_peer_id').value);
-                var dc = manager.pc.createDataChannel("hello", { reliable: false });
-                console.log(dc);
+                var dc = manager.pc.createDataChannel(manager.peer, { reliable: false });
+                dc.onerror = function(e){
+                    console.log('ERROR: ', e);
+                }
                 dc.onopen = function(){
                     console.log("I'm open I'm open!!!");
+                    exchange.addDC(dc, manager.peer);
                     dc.send("world hello!");
+                    
                 }
                 dc.onmessage = function(msg){
                     console.log(msg);
                 }
+                console.log(dc);
             }, false);
-            document.getElementById('connect').addEventListener('click', function(){
-                var connection = peer.connect(document.getElementById('peer_id').value);
-                connection.on('open', function(){
-                    setUpDC(connection);
-                });
-            }, false);
+            // document.getElementById('connect').addEventListener('click', function(){
+            //     var connection = peer.connect(document.getElementById('peer_id').value);
+            //     connection.on('open', function(){
+            //         setUpDC(connection);
+            //     });
+            // }, false);
         }
 
-        function setUpDC(conn){
-            exchange.connections[conn.peer] = conn._dc;
-            exchange.initDC(exchange.connections[conn.peer], conn.peer);
-        }
+        // function setUpDC(conn){
+        //     exchange.connections[conn.peer] = conn._dc;
+        //     exchange.initDC(exchange.connections[conn.peer]);
+        // }
         
-        document.getElementById('start').addEventListener('click', function(){
-            connect();
-        }, false);
-        connect();
+        // document.getElementById('start').addEventListener('click', function(){
+        //     connect();
+        // }, false);
+        connect(Math.random().toString(36).substr(2));
     </script>
 </body>
 </html>
