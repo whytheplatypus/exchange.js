@@ -1,3 +1,5 @@
+var RTCSessionDescription = window.mozRTCSessionDescription || window.RTCSessionDescription;
+var RTCPeerConnection = window.mozRTCPeerConnection || window.webkitRTCPeerConnection || window.RTCPeerConnection;
 
 /**
  * Manages the handshake between two peers in the exchange.
