@@ -1,9 +1,15 @@
 
-
 /**
- * The Exchange class, creates an manages peer exchange logic accross a provided dc.
+ * The Exchange class, creates and manages peer exchange logic.
  * @constructor
  * @param  {String} id The id used to identify the local machiene
+ *
+ * @todo keep track of jumps and time out a request after some number
+ * @todo identify all requests with a md5 hash
+ * @todo custom error objects
+ * @todo fix it so already broken up chunks get forwarded
+ * @todo make it so we only start sending ice candidtates after we get an answer?
+ * @todo verify that a packet has all the correct attributes set. (to, from, path).
  */
 var Exchange = function(id, onpeerconnection){
 	var self = this;
@@ -12,15 +18,15 @@ var Exchange = function(id, onpeerconnection){
 	this.onpeerconnection = onpeerconnection;
 
     /**
-     * [managers description]
+     * {peer: ExchangeManager} pairs
      * @type {Object}
      */
     this.managers = {};
     
-	if(arguments.length > 1){
-		this.connections = arguments[1];
+	if(arguments.length > 2){
+		this.connections = arguments[2];
 		for(var peer in this.connections){
-			this.initDC(this.connections[peer], peer, this.onpeerconnection);
+			this.addDC(this.connections[peer], peer);
 		}
 	} else {
 		/**
@@ -29,8 +35,45 @@ var Exchange = function(id, onpeerconnection){
 		 */
 		this.connections = {};
 	}
+
+	/**
+	 * Array of connected websocket servers their protocols eg. [{socket: ws, 
+	 *   protocol:{
+	 * 		to: 'to',
+     *      from: 'from',
+     *      type: 'type',
+     *      payload: 'payload',
+     *      ignore: 'OPEN',
+     *      offer: 'OFFER',
+     *      answer: 'ANSWER',
+     *      candidate: 'CANDIDATE',
+     *      port: 'PORT'
+	 *   }
+	 * }]
+	 * @type {Array}
+	 */
+	this.servers = [];
 	
+	/**
+	 * The currently building messages from reliable. {hash: [chunks], }
+	 * @type {Object}
+	 */
 	this.messages = {};
+
+	/**
+	 * Local send wrapper.
+	 * @param  {String} message The String to be sent.
+	 * @param  {String} peer    The name of the datachannel in this.connections to send the message along.
+	 */
+	this._send = function(message, peer){
+		try{
+			if(self.connections[peer].readyState == 'open'){
+				self.connections[peer].send(message);
+			}
+		} catch(e){
+			console.log(e);
+		}
+	}
 }
 
 /**
@@ -38,25 +81,76 @@ var Exchange = function(id, onpeerconnection){
  * @param  {DataChannel} dc The datachannel used to send exchange information
  * 
  */
-Exchange.prototype.initDC = function(dc, peer, callback) {
+Exchange.prototype.addDC = function(dc, peer) {
 	var self = this;
 
 	var datacallback = dc.onmessage;
+	var errorcallback = dc.onerror;
 	dc.onmessage = function(e){
-		var data = JSON.parse(e.data);
-		//console.log(data);
-		if(data.exchange){
+		var data = e.data;
+		var keepParsing = true;
+		while(keepParsing){
+			try{
+				data = JSON.parse(data);
+			} catch(error){
+				keepParsing = false;
+			}
+		}
+		if(data.exchange !== undefined){
 			self.ondata(data);
 		} else {
-			datacallback(e);
+			if(typeof datacallback === 'function'){
+				datacallback(e);
+			}
 		}
 	}
+	dc.onerror = function(e){
+		console.log('ERROR: ', e);
+		if(typeof errorcallback === 'function'){
+			errorcallback(e);
+		}
+    }
+	self.connections[peer] = dc;
+}
+
+/**
+ * Add a websocket server to the list of servers.
+ * @todo  test open.
+ * @todo  data specific protocol names
+ * @todo  let ignore be an array
+ * @param  {WebSocket} ws       An open websocket connection.
+ * @param  {Object}    protocol The translation from our protocol to theirs.
+ */
+Exchange.prototype.initWS = function(ws, protocol) {
+	var self = this;
+	ws.onmessage = function(e){
+		console.log(e);
+
+		var initialData = JSON.parse(e.data);
+		console.log(initialData);
+		//translate from server speak to exchange speak
+		var data = {
+			to: initialData[protocol.to],
+			from: initialData[protocol.from],
+			path: [],
+			type: initialData[protocol.type],
+			payload: initialData[protocol.payload],
+			protocol: protocol
+		};
+		if(initialData.type != protocol.ignore){
+			self.ondata(data);
+		}
+		
+	}
+	ws.onclose = function(e){
+
+	}
+	this.servers.push({socket: ws, protocol: protocol});
 }
 
 /**
  * Route exchange data to the correct ExchangeManager
  * @param  {JSON} data The JSON object to be routed
- * 
  */
 Exchange.prototype.ondata = function(data) {
 	if(data.to != this.id){
@@ -68,10 +162,10 @@ Exchange.prototype.ondata = function(data) {
 			data.path.push(this.id);
 		}
 		if(this.managers[data.from] !== undefined){
-			this.managers[data.from].ondata(data);
+			this.managers[data.from].ondata(data, data.path);
 		} 
 		else {
-			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {config:{}}, this.onpeerconnection);
+			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, this.onpeerconnection);
 			this.managers[data.from].ondata(data);
 		}
 	}
@@ -92,7 +186,8 @@ Exchange.prototype.forward = function(data) {
 		if(data.path.indexOf(this.id) == -1){
 			data.path.push(this.id);
 		}
-		this.connections[data.to].send(JSON.stringify(data));
+		//this.connections[data.to].send(JSON.stringify(data));
+		this._send(JSON.stringify(data), data.to);
 	} else if(data.path.indexOf(this.id)+1 == data.path.length || data.path.indexOf(this.id) == -1){
 		if(data.path.indexOf(this.id) == -1){
 			data.path.push(this.id);
@@ -100,14 +195,16 @@ Exchange.prototype.forward = function(data) {
 		for(var peer in this.connections){
 			//don't send it back down the path
 			if(data.path.indexOf(peer) == -1){
-				this.connections[peer].send(JSON.stringify(data));
+				this._send(JSON.stringify(data), peer);
+				//this.connections[peer].send(JSON.stringify(data));
 			}
 		}
 	} else if(data.path.indexOf(this.id) > -1){
 		//the path is already set up
 		var nextPeer = data.path[data.path.indexOf(this.id)+1];
 		console.log(nextPeer);
-		this.connections[nextPeer].send(JSON.stringify(data));
+		this._send(JSON.stringify(data), nextPeer);
+		//this.connections[nextPeer].send(JSON.stringify(data));
 	}
 }
 
@@ -118,40 +215,44 @@ Exchange.prototype.forward = function(data) {
  * 
  */
 Exchange.prototype.handleReliable = function(data) {
-	if(data.hasOwnProperty('hashes')){
-		var keysString = data.hashes.join("/");
-		this.messages[keysString] = {};
-		for(var i = 0; i < data.hashes.length; i++){
-			this.messages[keysString][data.hashes[i]] = false;
+	if(data.hasOwnProperty('hash')){
+		if(data.hasOwnProperty('count')){
+			this.messages[data.hash] = [];
+			console.log(parseInt(data.count));
+			for(var i = 0; i < parseInt(data.count); i++){
+				this.messages[data.hash][i] = false;
+			}
+			console.log("setting up messages");
+			console.log(this.messages);
 		}
-	} else if(data.hasOwnProperty('hash')){
-		//can check the hash here if we want
-		//if(md5(data.data) == hash){}
-		for(var keys in this.messages){
-			//console.log(keys);
-			if(keys.indexOf(data.hash) > -1){
-				this.messages[keys][data.hash] = data.data;
-				var ready = true;
-				for(var hash in this.messages[keys]){
-					// console.log(hash);
-					// console.log(this.messages[keys][hash]);
-					ready = ready && this.messages[keys][hash];
-					//console.log(ready);
-				}
-				if(ready){
-					//cleanup
-					var newdata = "";
-					for(var hash in this.messages[keys]){
-						newdata += this.messages[keys][hash];
-					}
-					this.messages[keys] = null;
-					delete this.messages[keys];
-					//console.log(data);
-					newdata = JSON.parse(newdata);
-					newdata.path = data.path;
-					this.ondata(newdata);
-				}
-			}		
+		if(data.hasOwnProperty('data')){
+			console.log(parseInt(data.key));
+			console.log(this.messages);
+			this.messages[data.hash][parseInt(data.key)] = data.data;
+		}
+		var ready = true;
+		for(var i = 0; i < this.messages[data.hash].length; i++){
+			// console.log(hash);
+			// console.log(this.messages[keys][hash]);
+			ready = ready && (this.messages[data.hash][i]);
+			//console.log(ready);
+		}
+		if(ready){
+			//cleanup
+			var newdata = "";
+			for(var i = 0; i < this.messages[data.hash].length; i++){
+				newdata += this.messages[data.hash][i];
+			}
+			this.messages[data.hash] = null;
+			delete this.messages[data.hash];
+			//console.log(data);
+			console.log(newdata);
+			newdata = JSON.parse(newdata);
+			newdata.path = data.path;
+			newdata.from = data.from;
+			newdata.to = data.to;
+
+			this.ondata(newdata);
 		}
 		
 	}
@@ -168,15 +269,25 @@ Exchange.prototype.handleReliable = function(data) {
  */
 Exchange.prototype.reliable = function(string, peer, path, to) {
 	console.log(peer);
-	var parts = {}
+	var self = this;
+	var parts = [];
+	var hash = md5(string);
+	console.log(hash);
 	for(var i = 0; i < string.length; i+=512){
 		var str = string.substr(i, 512);
-		parts[md5(str)] = str;
+		parts.push(str);
 	}
+	// console.log(this.connections[peer]);
+	
+	var partsPacket = {exchange: "true", type:"reliable", path:path, from:this.id, to:to, hash: hash, count:parts.length};
 
-	this.connections[peer].send(JSON.stringify({exchange: true, type:'reliable', path:path, from:this.id, to:to, hashes: Object.keys(parts)}));
+	this._send(JSON.stringify(partsPacket), peer);
+	//this.connections[peer].send(JSON.stringify(partsPacket));
+	
 	for(var key in parts){
-		this.connections[peer].send(JSON.stringify({exchange: true, type:'reliable', path:path, from:this.id, to:to, hash: key, data: parts[key]}));
+		var part = {exchange: "true", type:"reliable", path:path, from:this.id, to:to, hash: hash, key:key, data: parts[key]};
+		this._send(JSON.stringify(part), peer);
+		//this.connections[peer].send(JSON.stringify(part));
 	}
 }
 
@@ -185,33 +296,46 @@ Exchange.prototype.reliable = function(string, peer, path, to) {
  * The packet needs to have the "to" "from" and "path" attributes already set.
  * 
  * @param  {JSON} data The data packet to be sent
- * 
+ *
+ * @todo  translate server data to and from exchange data with _.map or something similar.
  */
-Exchange.prototype.emit = function(data) {
+Exchange.prototype.emit = function(data, to, path) {
 	
-	if(data.path.indexOf(data.to)+1 == data.path.length && data.path.indexOf(this.id) == -1){
-		data.path.unshift(this.id);
+	if(path.indexOf(to)+1 == path.length && path.indexOf(this.id) == -1){
+		path.unshift(this.id);
 	}
-	if(this.connections[data.to] !== undefined){
-		if(data.path.indexOf(this.id) == -1){
-			data.path.push(this.id);
+	if(this.connections[to] !== undefined){
+		if(path.indexOf(this.id) == -1){
+			path.push(this.id);
 		}
-		this.reliable(JSON.stringify(data), data.to, data.path, data.to);
-	} else if(data.path.indexOf(this.id)+1 == data.path.length || data.path.indexOf(this.id) == -1){
-		if(data.path.indexOf(this.id) == -1){
-			data.path.push(this.id);
+		this.reliable(JSON.stringify(data), to, path, to);
+	} else if(path.indexOf(this.id)+1 == path.length || path.indexOf(this.id) == -1){
+		if(path.indexOf(this.id) == -1){
+			path.push(this.id);
 		}
 	
 		for(var peer in this.connections){
 			//don't send it back down the path
-			if(data.path.indexOf(peer) == -1){
-				this.reliable(JSON.stringify(data), peer, data.path, data.to);
+			if(path.indexOf(peer) == -1){
+				this.reliable(JSON.stringify(data), peer, [], to);
 			}
 		}
-	} else if(data.path.indexOf(this.id) > -1){
+		for(var i = 0; i < this.servers.length; i++){
+			//translate from exchange speak to server speak
+			var server = this.servers[i];
+			if(server.socket.readyState == 1){
+				var serverData = {}
+				serverData[server.protocol.to] = to;
+				serverData[server.protocol.from] = this.id;
+				serverData[server.protocol.type] = data.type;
+				serverData[server.protocol.payload] = data.payload;
+				server.socket.send(JSON.stringify(serverData));
+			}
+		}
+	} else if(path.indexOf(this.id) > -1){
 		//the path is already set up
-		var nextPeer = data.path.indexOf(this.id)+1;
-		this.reliable(JSON.stringify(data), data.path[nextPeer], data.path, data.to);
+		var nextPeer = path.indexOf(this.id)+1;
+		this.reliable(JSON.stringify(data), path[nextPeer], path, to);
 	}
 	
 }
@@ -223,13 +347,6 @@ Exchange.prototype.emit = function(data) {
  */
 Exchange.prototype.connect = function(peer) {
 	console.log("connecting to ", peer);
-	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {config:{}}, this.onpeerconnection);
+	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {}, this.onpeerconnection);
 	return this.managers[peer];
 }
-
-//@todo keep track of jumps and time out a request after some number
-//@todo identify all requests with a md5 hash
-//@todo custom error objects
-//@todo fix it so already broken up chunks get forwarded
-//@todo make it so we only start sending ice candidtates after we get an answer?
-//@todo verify that a packet has all the correct attributes set. (to, from, path).

@@ -1,7 +1,7 @@
 {
   "name": "exchange.js",
-  "version": "0.0.0",
-  "main": "exchange.js",
+  "version": "0.0.1",
+  "main": "exchange.min.js",
   "ignore": [
     "**/.*",
     "node_modules",
