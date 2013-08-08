@@ -11,11 +11,9 @@
  * @todo make it so we only start sending ice candidtates after we get an answer?
  * @todo verify that a packet has all the correct attributes set. (to, from, path).
  */
-var Exchange = function(id, onpeerconnection){
+var Exchange = function(id){
 	var self = this;
 	this.id = id;
-    
-	this.onpeerconnection = onpeerconnection;
 
     /**
      * {peer: ExchangeManager} pairs
@@ -151,6 +149,7 @@ Exchange.prototype.initWS = function(ws, protocol) {
 /**
  * Route exchange data to the correct ExchangeManager
  * @param  {JSON} data The JSON object to be routed
+ * @todo rewrite the case where we don't have a manager for that id and emit an 'offer' event
  */
 Exchange.prototype.ondata = function(data) {
 	if(data.to != this.id){
@@ -165,7 +164,7 @@ Exchange.prototype.ondata = function(data) {
 			this.managers[data.from].ondata(data, data.path);
 		} 
 		else {
-			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, this.onpeerconnection);
+			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, something);
 			this.managers[data.from].ondata(data);
 		}
 	}
@@ -345,8 +344,8 @@ Exchange.prototype.emit = function(data, to, path) {
  * @param  {String} id The ID to attempt to connect to.
  * @return {ExchangeManager} The ExchangeManager handeling the handshake to the remote peer, you can access the peerconnection object from this.
  */
-Exchange.prototype.connect = function(peer) {
+Exchange.prototype.connect = function(peer, onpeerconnection) {
 	console.log("connecting to ", peer);
-	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {}, this.onpeerconnection);
+	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {}, onpeerconnection);
 	return this.managers[peer];
 }

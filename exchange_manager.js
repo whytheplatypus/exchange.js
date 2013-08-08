@@ -11,7 +11,7 @@ var RTCPeerConnection = window.mozRTCPeerConnection || window.webkitRTCPeerConne
  * @param {JSON}       options  Almost always empty (can specify a stun url that's about it)
  * @param {Function}   callback [description]
  */
-function ExchangeManager(id, peer, path, exchange, config, callback) {
+function ExchangeManager(id, peer, path, exchange, config) {
   var self = this;
   if(config.iceServers === undefined){
     config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
@@ -41,12 +41,6 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
   // A default label in the event that none are passed in.
   this._default = 0;
 
-  if(typeof(callback) == "function"){
-    this.onpeerconnection = callback;
-  } else {
-    this.onpeerconnection = function(pc, peer){};
-  }
-
   if (!!this.id) {
     this.initialize();
   }
@@ -57,13 +51,16 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
  * @param  {JSON} data
  */
 ExchangeManager.prototype.ondata = function(data, path) {
+  var self = this;
   if(path !== undefined){
     this.path = path.reverse();
   }
   switch(data.type) {
     case this.protocol.offer:
-      this.update(data.payload.labels);
-      this.handleSDP(data.payload.sdp, data.type);
+      this.onoffer(function(){
+        self.update(data.payload.labels);
+        self.handleSDP(data.payload.sdp, data.type);
+      }, self.pc, data);
       break;
     case this.protocol.answer:
       this.handleSDP(data.payload.sdp, data.type);
@@ -116,7 +113,6 @@ ExchangeManager.prototype.initialize = function(id) {
 ExchangeManager.prototype._startPeerConnection = function() {
   console.log("starting PC");
   this.pc = new RTCPeerConnection(this._options.config, { optional: [ { RtpDataChannels: true } ]});
-  this.onpeerconnection(this.pc, this.peer);
 };
 
 /** Set up ICE candidate handlers. */

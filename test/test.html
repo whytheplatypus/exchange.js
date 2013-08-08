@@ -63,9 +63,20 @@
             var _socket = new WebSocket(peerjsServer);
             document.getElementById('room_id').value = id;
             _socket.onopen = function(){
-                exchange = new Exchange(id, function(pc, peer){
-                    console.log("peer connection started with ", peer);
-                    console.log(pc);
+                exchange = new Exchange(id);
+                exchange.initWS(_socket, {
+                    to: 'dst',
+                    from: 'src',
+                    type: 'type',
+                    payload: 'payload',
+                    ignore: 'OPEN',
+                    offer: 'OFFER',
+                    answer: 'ANSWER',
+                    candidate: 'CANDIDATE',
+                    port: 'PORT'
+                });
+
+                exchange.on('offer', function(answer, pc, data){
                     pc.ondatachannel = function(evt) {
                         console.log('Received data channel');
                         console.log(evt);
@@ -82,17 +93,7 @@
                         }
                         
                     };
-                });
-                exchange.initWS(_socket, {
-                    to: 'dst',
-                    from: 'src',
-                    type: 'type',
-                    payload: 'payload',
-                    ignore: 'OPEN',
-                    offer: 'OFFER',
-                    answer: 'ANSWER',
-                    candidate: 'CANDIDATE',
-                    port: 'PORT'
+                    answer();
                 });
             }
             
