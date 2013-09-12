@@ -34,7 +34,7 @@ function ExchangeManager(id, peer, path, exchange, config) {
   this.id = id; //local peer
   this.peer = peer; //remote peer
   this.pc = null;
-
+  this.exchange = exchange;
   // Mapping labels to metadata and serialization.
   // label => { metadata: ..., serialization: ..., reliable: ...}
   this.labels = {};
@@ -57,10 +57,9 @@ ExchangeManager.prototype.ondata = function(data, path) {
   }
   switch(data.type) {
     case this.protocol.offer:
-      this.onoffer(function(){
-        self.update(data.payload.labels);
-        self.handleSDP(data.payload.sdp, data.type);
-      }, self.pc, data);
+      self._setupIce();
+      self.update(data.payload.labels);
+      self.handleSDP(data.payload.sdp, data.type);
       break;
     case this.protocol.answer:
       this.handleSDP(data.payload.sdp, data.type);
@@ -112,7 +111,7 @@ ExchangeManager.prototype.initialize = function(id) {
 /** Start a PC. */
 ExchangeManager.prototype._startPeerConnection = function() {
   console.log("starting PC");
-  this.pc = new RTCPeerConnection(this._options.config, { optional: [ { RtpDataChannels: true } ]});
+  this.pc = new RTCPeerConnection(this._options, { optional: [ { RtpDataChannels: true } ]});
 };
 
 /** Set up ICE candidate handlers. */
@@ -121,6 +120,7 @@ ExchangeManager.prototype._setupIce = function() {
   console.log("setting up ICE");
   this.pc.onicecandidate = function(evt) {
     if (evt.candidate) {
+      console.log(evt.candidate);
       self._send({
         type: 'CANDIDATE',
         payload: {
@@ -228,6 +228,7 @@ ExchangeManager.prototype.handleSDP = function(sdp, type) {
 
 /** Handle a candidate. */
 ExchangeManager.prototype.handleCandidate = function(message) {
+  console.log(message);
   var candidate = new RTCIceCandidate(message.candidate);
   this.pc.addIceCandidate(candidate);
   console.log('Added ICE candidate.');

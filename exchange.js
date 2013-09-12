@@ -34,6 +34,10 @@ var Exchange = function(id){
 		this.connections = {};
 	}
 
+	this.events = {
+		'peer': new Array()
+	}
+
 	/**
 	 * Array of connected websocket servers their protocols eg. [{socket: ws, 
 	 *   protocol:{
@@ -164,8 +168,9 @@ Exchange.prototype.ondata = function(data) {
 			this.managers[data.from].ondata(data, data.path);
 		} 
 		else {
-			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, something);
+			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {});
 			this.managers[data.from].ondata(data);
+			this.trigger('peer', this.managers[data.from]);
 		}
 	}
 }
@@ -339,13 +344,27 @@ Exchange.prototype.emit = function(data, to, path) {
 	
 }
 
+Exchange.prototype.on = function(event, callback) {
+	try{
+		this.events[event].push(callback);
+	} catch(e){
+		throw {message: event+" event doesn't exists", name:"EventException"};
+	}
+}
+
+Exchange.prototype.trigger = function(event) {
+	for(var e in this.events[event]){
+		this.events[event][e].apply(this, arguments);
+	}
+}
+
 /**
  * Starts a connection to some remote peer through the exchange.
  * @param  {String} id The ID to attempt to connect to.
  * @return {ExchangeManager} The ExchangeManager handeling the handshake to the remote peer, you can access the peerconnection object from this.
  */
-Exchange.prototype.connect = function(peer, onpeerconnection) {
+Exchange.prototype.connect = function(peer) {
 	console.log("connecting to ", peer);
-	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {}, onpeerconnection);
+	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {});
 	return this.managers[peer];
 }
