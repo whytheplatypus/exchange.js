@@ -2,16 +2,16 @@ var host = 'localhost'
     ,port = 8000;
 
 var protocol = {
-                to: 'to',
-                from: 'from',
-                type: 'type',
-                payload: 'payload',
-                ignore: '',
-                offer: 'OFFER',
-                answer: 'ANSWER',
-                candidate: 'CANDIDATE',
-                port: 'PORT'
-            };
+    to: 'to',
+    from: 'from',
+    type: 'type',
+    payload: 'payload',
+    ignore: '',
+    offer: 'OFFER',
+    answer: 'ANSWER',
+    candidate: 'CANDIDATE',
+    port: 'PORT'
+};
 var peer1 = {
 	id:Math.random().toString(36).substr(2)
 };
@@ -27,7 +27,7 @@ describe('Exchange', function(){
 	peer1.exchange = new Exchange(peer1.id);
 	peer2.exchange = new Exchange(peer2.id);
 	describe("#id", function(){
-		it("Should hve the same id as the peer", function(){
+		it("Should have the same id as the peer", function(){
 			expect(peer1.exchange.id).to.eql(peer1.id);
 			expect(peer1.exchange.id).not.to.eql(peer2.exchange.id);
 		});
@@ -35,27 +35,42 @@ describe('Exchange', function(){
 	describe("#initWS(websocket, protocol)", function(){
 		var isDone = 0;
 		it("Should add the socket to the server list", function(done){
-			_socket1.onopen = function(){
+			console.log(_socket1.readyState);
+			if(_socket1.readyState == 1){
 				peer1.exchange.initWS(_socket1, protocol);
 				expect(peer1.exchange.servers[0].socket).to.eql(_socket1);
 				expect(peer1.exchange.servers[0].protocol).to.eql(protocol);
 				done();
-			};
+			} else {
+				_socket1.onopen = function(){
+					peer1.exchange.initWS(_socket1, protocol);
+					expect(peer1.exchange.servers[0].socket).to.eql(_socket1);
+					expect(peer1.exchange.servers[0].protocol).to.eql(protocol);
+					done();
+				};
+			}
 		});
 		it("Should add the socket to the server list", function(done){
-			_socket2.onopen = function(){
+			if(_socket2.readyState == 1){
 				peer2.exchange.initWS(_socket2, protocol);	
 				expect(peer2.exchange.servers[0].socket).to.eql(_socket2);
 				expect(peer2.exchange.servers[0].protocol).to.eql(protocol);
 				done();
-			};
+			} else {
+				_socket2.onopen = function(){
+					peer2.exchange.initWS(_socket2, protocol);	
+					expect(peer2.exchange.servers[0].socket).to.eql(_socket2);
+					expect(peer2.exchange.servers[0].protocol).to.eql(protocol);
+					done();
+				};
+			}
 		});
 		after(function(){
 			describe("#connect(id)", function(){        
 				var manager = peer1.exchange.connect(peer2.id);
 		        var dc = manager.pc.createDataChannel(manager.peer, { reliable: false });
 		        dc.onopen = function(){
-                    console.log("I'm open I'm open!!!");
+                    
                 };
 		        it("Should send an offer.", function(done){
 		        	peer2.exchange.on('peer', function(eventName, peerManager){
