@@ -56,6 +56,8 @@ var Exchange = function(id){
 	 * @type {Array}
 	 */
 	this.servers = [];
+
+	this.queue = [];
 	
 	/**
 	 * The currently building messages from reliable. {hash: [chunks], }
@@ -63,22 +65,75 @@ var Exchange = function(id){
 	 */
 	this.messages = {};
 
-	/**
-	 * Local send wrapper.
-	 * @param  {String} message The String to be sent.
-	 * @param  {String} peer    The name of the datachannel in this.connections to send the message along.
-	 */
-	this._send = function(message, peer){
-		try{
-			if(self.connections[peer].readyState == 'open'){
-				self.connections[peer].send(message);
-			}
-		} catch(e){
-			console.log(e);
-		}
-	}
+	this.queueInterval = setInterval(self.dequeue.bind(this), 250);
 }
 
+/**
+ * Handles data that has been split up into smaller chuncks
+ * labled by md5 hashes.
+ * @param  {JSON} data The packet of data to be handled
+ * 
+ */
+Exchange.prototype.handleBinary = function(data) {
+	// console.log(data);
+	// data = BSON.deserialize(data);
+	if(this.messages[data.hash] === undefined){
+		this.messages[data.hash] = new Array(data.length);
+	}
+	this.messages[data.hash][data.start] = data.part;
+	// if(this.messages[data.hash])
+	console.log(this.messages);
+	if(md5(this.messages[data.hash].join("")) == data.hash){
+		this.ondata(JSON.parse(this.messages[data.hash].join("")));
+	}
+
+	// return data;
+}
+
+/**
+ * Local send wrapper.
+ * @param  {String} message The String to be sent.
+ * @param  {String} peer    The name of the datachannel in this.connections to send the message along.
+ */
+Exchange.prototype._send = function(message, peer){
+	var self = this;
+	// try{
+	var message = JSON.stringify(message);
+	var hash = md5(message);
+	var parts = [];
+	for(var i = 0; i < message.length; i+=512){
+        var str = message.substr(i, 512);
+        parts.push(str);
+	}
+	for(var i = 0; i < parts.length; i++){
+		var packet = {exchange: true, start:i, part:parts[i], hash:hash, length:parts.length};
+		// console.log(packet);
+
+		self.queue.push({peer:peer, packet:JSON.stringify(packet)});
+	}
+
+		
+	// } catch(e){
+		// console.log(e);
+	// }
+}
+
+Exchange.prototype.enqueue = function(packet, peer) {
+	this.queue.push({peer: peer, packet: packet});
+}
+
+Exchange.prototype.dequeue = function(){
+	var self = this;
+	if(this.queue.length > 0){
+		var waiting = this.queue.shift();
+		// try{
+			self.connections[waiting.peer].send(waiting.packet);
+		// } catch(e){
+		// 	console.log(e);
+		// 	this.queue.unshift(waiting);
+		// }
+	}
+}
 /**
  * setup a new datachannel to be used for exchange.
  * @param  {DataChannel} dc The datachannel used to send exchange information
@@ -91,16 +146,20 @@ Exchange.prototype.addDC = function(dc, peer) {
 	var errorcallback = dc.onerror;
 	dc.onmessage = function(e){
 		var data = e.data;
+		console.log("got", e);
 		var keepParsing = true;
-		while(keepParsing){
-			try{
-				data = JSON.parse(data);
-			} catch(error){
-				keepParsing = false;
+		try{
+			data = JSON.parse(data);
+		} catch(error){
+			if(typeof datacallback === 'function'){
+				datacallback(e);
+			} else {
+				throw error;
 			}
 		}
+		console.log(data);
 		if(data.exchange !== undefined){
-			self.ondata(data);
+			self.handleBinary(data);
 		} else {
 			if(typeof datacallback === 'function'){
 				datacallback(e);
@@ -141,7 +200,7 @@ Exchange.prototype.initWS = function(ws, protocol) {
 			protocol: protocol
 		};
 		if(initialData.type != protocol.ignore){
-			self.ondata(data);
+			self.ondata(JSON.parse(e.data));
 		}
 		
 	}
@@ -157,19 +216,30 @@ Exchange.prototype.initWS = function(ws, protocol) {
  * @todo rewrite the case where we don't have a manager for that id and emit an 'offer' event
  */
 Exchange.prototype.ondata = function(data) {
+	console.log("handeling", data);
 	if(data.to != this.id){
 		this.forward(data);
 	} else {
+		//this.handleReliable(data);
+		
 		if(data.path.indexOf(this.id) == -1){
 			data.path.push(this.id);
 		}
-		if(this.managers[data.from] !== undefined){
-			this.managers[data.from].ondata(data, data.path);
+		if(this.managers[data.from] === undefined){
+			this.managers[data.from] = {};
+		}
+		if(this.managers[data.from][data.label] !== undefined){
+			console.log("our type", data.payload.type);
+			this.managers[data.from][data.label].ondata(data.payload, data.path);
 		} 
 		else {
-			this.managers[data.from] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {});
-			this.managers[data.from].ondata(data);
-			this.trigger('peer', this.managers[data.from]);
+			console.log("our type", data.payload.type);
+			console.log(this.id+" creating new manager for "+data.from);
+			console.log("with label" + data.label);
+			this.managers[data.from][data.label] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, data.label);
+			
+			this.managers[data.from][data.label].ondata(data.payload);
+			this.trigger('peer', this.managers[data.from][data.label]);
 		}
 	}
 }
@@ -190,7 +260,7 @@ Exchange.prototype.forward = function(data) {
 			data.path.push(this.id);
 		}
 		//this.connections[data.to].send(BSON.serialize(data, false, true, false));
-		this._send(BSON.serialize(data, false, true, false), data.to);
+		this._send(data, data.to);
 	} else if(data.path.indexOf(this.id)+1 == data.path.length || data.path.indexOf(this.id) == -1){
 		if(data.path.indexOf(this.id) == -1){
 			data.path.push(this.id);
@@ -198,7 +268,7 @@ Exchange.prototype.forward = function(data) {
 		for(var peer in this.connections){
 			//don't send it back down the path
 			if(data.path.indexOf(peer) == -1){
-				this._send(BSON.serialize(data, false, true, false), peer);
+				this._send(data, peer);
 				//this.connections[peer].send(BSON.serialize(data, false, true, false));
 			}
 		}
@@ -206,20 +276,12 @@ Exchange.prototype.forward = function(data) {
 		//the path is already set up
 		var nextPeer = data.path[data.path.indexOf(this.id)+1];
 		console.log(nextPeer);
-		this._send(BSON.serialize(data, false, true, false), nextPeer);
+		this._send(data, nextPeer);
 		//this.connections[nextPeer].send(BSON.serialize(data, false, true, false));
 	}
 }
 
-/**
- * Handles data that has been split up into smaller chuncks
- * labled by md5 hashes.
- * @param  {JSON} data The packet of data to be handled
- * 
- */
-Exchange.prototype.handleReliable = function(data) {
-	data.payload = BSON.deserialize(data.payload);
-}
+
 
 /**
  * Breakes up a string into reasonable chunks of data
@@ -230,12 +292,12 @@ Exchange.prototype.handleReliable = function(data) {
  * @param  {String} to     The ID of the peer we're sending the data to.
  * 
  */
-Exchange.prototype.reliable = function(string, peer, path, to) {
-	console.log(peer);
+Exchange.prototype.reliable = function(payload, peer, path, to, label) {
+	
 	var self = this;
 	// console.log(this.connections[peer]);
-	
-	var packet = {exchange: "true", type:"reliable", path:path, from:this.id, to:to, payload: string};
+
+	var packet = {path:path, from:this.id, to:to, payload: payload, label:label};
 
 	this._send(packet, peer);
 }
@@ -248,8 +310,8 @@ Exchange.prototype.reliable = function(string, peer, path, to) {
  *
  * @todo  translate server data to and from exchange data with _.map or something similar.
  */
-Exchange.prototype.emit = function(data, to, path) {
-	
+Exchange.prototype.emit = function(data, to, path, label) {
+	console.log("emit", data.type)
 	if(path.indexOf(to)+1 == path.length && path.indexOf(this.id) == -1){
 		path.unshift(this.id);
 	}
@@ -257,16 +319,18 @@ Exchange.prototype.emit = function(data, to, path) {
 		if(path.indexOf(this.id) == -1){
 			path.push(this.id);
 		}
-		this.reliable(BSON.serialize(data, false, true, false), to, path, to);
+		console.log("emit", data.type)
+		this.reliable(data, to, path, to, label);
 	} else if(path.indexOf(this.id)+1 == path.length || path.indexOf(this.id) == -1){
 		if(path.indexOf(this.id) == -1){
 			path.push(this.id);
 		}
 	
 		for(var peer in this.connections){
+			console.log(this.connections);
 			//don't send it back down the path
 			if(path.indexOf(peer) == -1){
-				this.reliable(BSON.serialize(data, false, true, false), peer, [], to);
+				this.reliable(data, peer, [], to, label);
 			}
 		}
 		for(var i = 0; i < this.servers.length; i++){
@@ -276,15 +340,17 @@ Exchange.prototype.emit = function(data, to, path) {
 				var serverData = {}
 				serverData[server.protocol.to] = to;
 				serverData[server.protocol.from] = this.id;
-				serverData[server.protocol.type] = data.type;
-				serverData[server.protocol.payload] = data.payload;
+				serverData['path'] = [];
+				serverData['label'] = label;
+				serverData['payload'] = data;
 				server.socket.send(JSON.stringify(serverData));
 			}
 		}
 	} else if(path.indexOf(this.id) > -1){
 		//the path is already set up
 		var nextPeer = path.indexOf(this.id)+1;
-		this.reliable(BSON.serialize(data, false, true, false), path[nextPeer], path, to);
+
+		this.reliable(data, path[nextPeer], path, to, label);
 	}
 	
 }
@@ -308,8 +374,15 @@ Exchange.prototype.trigger = function(event) {
  * @param  {String} id The ID to attempt to connect to.
  * @return {ExchangeManager} The ExchangeManager handeling the handshake to the remote peer, you can access the peerconnection object from this.
  */
-Exchange.prototype.connect = function(peer) {
+Exchange.prototype.connect = function(peer, label) {
 	console.log("connecting to ", peer);
-	this.managers[peer] = new ExchangeManager(this.id, peer, [], this, {});
-	return this.managers[peer];
+	if(label == undefined){
+		label = "base";
+	}
+	if(this.managers[peer] === undefined){
+		this.managers[peer] = {};
+	}
+	console.log("label ", label);
+	this.managers[peer][label] = new ExchangeManager(this.id, peer, [], this, {}, label);
+	return this.managers[peer][label];
 }

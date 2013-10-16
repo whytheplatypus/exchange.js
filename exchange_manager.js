@@ -11,7 +11,7 @@ var RTCPeerConnection = window.mozRTCPeerConnection || window.webkitRTCPeerConne
  * @param {JSON}       options  Almost always empty (can specify a stun url that's about it)
  * @param {Function}   callback [description]
  */
-function ExchangeManager(id, peer, path, exchange, config) {
+function ExchangeManager(id, peer, path, exchange, config, label) {
   var self = this;
   if(config.iceServers === undefined){
     config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
@@ -29,7 +29,8 @@ function ExchangeManager(id, peer, path, exchange, config) {
   this._options = config;
   this.path = path;
   this._send = function(data){
-    exchange.emit(data, peer, self.path);
+    console.log(label);
+    exchange.emit(data, peer, self.path, label);
   };
   this.id = id; //local peer
   this.peer = peer; //remote peer
@@ -57,11 +58,13 @@ ExchangeManager.prototype.ondata = function(data, path) {
   }
   switch(data.type) {
     case this.protocol.offer:
+      console.log("got offer");
       self._setupIce();
       self.update(data.payload.labels);
       self.handleSDP(data.payload.sdp, data.type);
       break;
     case this.protocol.answer:
+      console.log("got answer");
       this.handleSDP(data.payload.sdp, data.type);
       break;
     case this.protocol.candidate:

@@ -1,0 +1,29 @@
+{
+  "name": "exchange.js",
+  "version": "0.0.0",
+  "description": "A local exchange server that lets peers connect to eachother. This means that once peers are connected by some n degree of separation they can connect directly without needing a server.",
+  "main": "exchange.js",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/whytheplatypus/exchange.js.git"
+  },
+  "author": "",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/whytheplatypus/exchange.js/issues"
+  },
+  "devDependencies": {
+    "grunt": "~0.4.1",
+    "grunt-contrib-connect": "~0.5.0",
+    "load-grunt-tasks": "~0.1.0",
+    "grunt-contrib-watch": "~0.5.3",
+    "time-grunt": "~0.1.1"
+  }
+}

@@ -18,10 +18,15 @@ var peer1 = {
 var peer2 = {
 	id:Math.random().toString(36).substr(2)
 };
+var peer3 = {
+	id:Math.random().toString(36).substr(2)
+};
 var peerjsServer = 'ws://' + host + ':' + port + '/?id='+peer1.id;
 var _socket1 = new WebSocket(peerjsServer);
 var peerjsServer2 = 'ws://' + host + ':' + port + '/?id='+peer2.id;
 var _socket2 = new WebSocket(peerjsServer2);
+_socket2.onclose = function(){console.log('2 closed');};
+_socket1.onclose = function(){console.log('1 closed');};
 
 describe('Exchange', function(){
 	peer1.exchange = new Exchange(peer1.id);
@@ -68,34 +73,37 @@ describe('Exchange', function(){
 		after(function(){
 			describe("#connect(id)", function(){        
 				var manager = peer1.exchange.connect(peer2.id);
-		        var dc = manager.pc.createDataChannel(manager.peer, { reliable: false });
+		        var dc = manager.pc.createDataChannel(manager.peer, { reliable: false, protocol: "test" });
 		        dc.onopen = function(){
-                    
+                    console.log("I'm open");
+                    peer1.exchange.addDC(dc, peer2.id);
                 };
 		        it("Should send an offer.", function(done){
 		        	peer2.exchange.on('peer', function(eventName, peerManager){
 		        		expect(peerManager.pc).to.be.a(RTCPeerConnection);
-		        		done();
+		        		console.log(peerManager.pc);
+		        		peerManager.pc.ondatachannel = function(e){
+		        			console.log(e);
+		        			e.channel.onopen = function(){
+		        				console.log("gets here");
+		        				_socket1.close();
+		        				_socket2.close();
+			        			peer2.exchange.addDC(e.channel, peerManager.peer);
+			        			
+			        			var m2 = peer2.exchange.connect(peer1.id, 'test');
+			        			var dc2 = m2.pc.createDataChannel(m2.peer, { reliable: false });
+						        dc2.onopen = function(){
+				                    console.log("I'm open 2");
+				                    done();
+				                };
+					            
+				                
+				            }
+		        			
+		        		};
+		        		
 		        	});
 		        });
-		        
-		        // dc.onerror = function(e){
-		        //     console.log('ERROR: ', e);
-		        // }
-		        // dc.onopen = function(){
-		        //     console.log("I'm open I'm open!!!");
-		        //     // self.exchange.addDC(dc, manager.peer);
-		        //     dc.send("world hello!");
-		            
-		        // }
-		        // dc.onmessage = function(msg){
-		        //     console.log(msg);
-		        // }
-		        describe("#managers", function(){
-					it("Should have an empty hash of managers", function(){
-						// expect(peer1.exchange.managers).to.eql({});
-					});
-				});
 			});
 		});
 	});
