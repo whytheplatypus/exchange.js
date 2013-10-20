@@ -24,6 +24,9 @@
     "grunt-contrib-connect": "~0.5.0",
     "load-grunt-tasks": "~0.1.0",
     "grunt-contrib-watch": "~0.5.3",
-    "time-grunt": "~0.1.1"
+    "time-grunt": "~0.1.1",
+    "grunt-contrib-uglify": "~0.2.4",
+    "grunt-contrib-clean": "~0.5.0",
+    "grunt-jsdoc": "~0.4.1"
   }
 }

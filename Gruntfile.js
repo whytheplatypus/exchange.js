@@ -73,11 +73,36 @@ module.exports = function (grunt) {
                 // 'htmlmin'
             ]
         },
+
+        clean: ['exchange.min.js', 'docs'],
+
+        uglify: {
+			my_target: {
+				files: {
+					'exchange.min.js': ['exchange.js', 'exchange_manager.js', 'md5.js']
+				}
+			}
+		},
+
+		jsdoc : {
+	        dist : {
+	            src: ['exchange.js', 'exchange_manager.js'], 
+	            options: {
+	                destination: 'docs'
+	            }
+	        }
+	    }
     });
 
     grunt.registerTask('server', [
             'connect:livereload',
             'watch'
         ]
-    )
+    );
+
+    grunt.registerTask('build', [
+    	'clean',
+    	'uglify',
+    	'jsdoc'
+    ]);
 };
