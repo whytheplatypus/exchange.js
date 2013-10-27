@@ -36,7 +36,8 @@ var Exchange = function(id){
 	}
 
 	this.events = {
-		'peer': new Array()
+		'peer': new Array(),
+		'peers': new Array()
 	}
 
 	/**
@@ -65,7 +66,7 @@ var Exchange = function(id){
 	 */
 	this.messages = {};
 
-	this.queueInterval = setInterval(self.dequeue.bind(this), 250);
+	// this.queueInterval = setInterval(self.dequeue.bind(this), 250);
 }
 
 /**
@@ -109,7 +110,7 @@ Exchange.prototype._send = function(message, peer){
 		var packet = {exchange: true, start:i, part:parts[i], hash:hash, length:parts.length};
 		// console.log(packet);
 
-		self.queue.push({peer:peer, packet:JSON.stringify(packet)});
+		self.enqueue({peer:peer, packet:JSON.stringify(packet)});
 	}
 
 		
@@ -120,18 +121,20 @@ Exchange.prototype._send = function(message, peer){
 
 Exchange.prototype.enqueue = function(packet, peer) {
 	this.queue.push({peer: peer, packet: packet});
+	this.dequeue();
 }
 
 Exchange.prototype.dequeue = function(){
 	var self = this;
 	if(this.queue.length > 0){
 		var waiting = this.queue.shift();
-		// try{
+		try{
 			self.connections[waiting.peer].send(waiting.packet);
-		// } catch(e){
-		// 	console.log(e);
-		// 	this.queue.unshift(waiting);
-		// }
+		} catch(e){
+			console.log(e);
+			this.queue.unshift(waiting);
+			this.dequeue();
+		}
 	}
 }
 /**
@@ -180,34 +183,38 @@ Exchange.prototype.addDC = function(dc, peer) {
  * @todo  test open.
  * @todo  data specific protocol names
  * @todo  let ignore be an array
- * @param  {WebSocket} ws       An open websocket connection.
+ * @param  {String} server       A websocket server address.
  * @param  {Object}    protocol The translation from our protocol to theirs.
  */
-Exchange.prototype.initWS = function(ws, protocol) {
+Exchange.prototype.initWS = function(server, protocol) {
 	var self = this;
+	var ws = new WebSocket(server);
 	ws.onmessage = function(e){
-		console.log(e);
-
 		var initialData = JSON.parse(e.data);
-		console.log(initialData);
-		//translate from server speak to exchange speak
-		var data = {
-			to: initialData[protocol.to],
-			from: initialData[protocol.from],
-			path: [],
-			type: initialData[protocol.type],
-			payload: initialData[protocol.payload],
-			protocol: protocol
-		};
-		if(initialData.type != protocol.ignore){
-			self.ondata(JSON.parse(e.data));
+		if(initialData.peers !== undefined){
+			// self.trigger('peers', initialData.peers);
+		} else {
+			console.log(initialData);
+			//translate from server speak to exchange speak
+			var data = {
+				to: initialData[protocol.to],
+				from: initialData[protocol.from],
+				path: [],
+				type: initialData[protocol.type],
+				payload: initialData[protocol.payload],
+				protocol: protocol
+			};
+			if(initialData.type != protocol.ignore){
+				self.ondata(JSON.parse(e.data));
+			}
 		}
 		
 	}
 	ws.onclose = function(e){
-
+		//remove server
 	}
 	this.servers.push({socket: ws, protocol: protocol});
+	return ws;
 }
 
 /**

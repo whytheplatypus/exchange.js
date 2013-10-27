@@ -1,5 +1,7 @@
 var RTCSessionDescription = window.mozRTCSessionDescription || window.RTCSessionDescription;
 var RTCPeerConnection = window.mozRTCPeerConnection || window.webkitRTCPeerConnection || window.RTCPeerConnection;
+var RTCIceCandidate = window.mozRTCIceCandidate || window.RTCIceCandidate;
+
 
 /**
  * Manages the handshake between two peers in the exchange.
@@ -114,7 +116,7 @@ ExchangeManager.prototype.initialize = function(id) {
 /** Start a PC. */
 ExchangeManager.prototype._startPeerConnection = function() {
   console.log("starting PC");
-  this.pc = new RTCPeerConnection(this._options, { optional: [ { RtpDataChannels: true } ]});
+  this.pc = new RTCPeerConnection(this._options, { optional: [ { RtpDataChannels: true }, {DtlsSrtpKeyAgreement: true} ]});
 };
 
 /** Set up ICE candidate handlers. */
@@ -162,25 +164,25 @@ ExchangeManager.prototype._makeAnswer = function() {
 /** Set up onnegotiationneeded. */
 ExchangeManager.prototype._setupNegotiationHandler = function() {
   var self = this;
-  console.log('Listening for `negotiationneeded`');
-  this.pc.onnegotiationneeded = function() {
-    console.log('`negotiationneeded` triggered');
+  
+  if(window.webkitRTCPeerConnection !== undefined){
+    console.log('Listening for `negotiationneeded`');
+    this.pc.onnegotiationneeded = function() {
+      console.log('`negotiationneeded` triggered');
+      self._makeOffer();
+    };
+  } else {
     self._makeOffer();
-  };
+  }
 };
 
 /** Send an RTCSessionDescription offer for peer exchange. */
 ExchangeManager.prototype._makeOffer = function() {
   var self = this;
   this.pc.createOffer(function setLocal(offer) {
+    console.log('Set localDescription to', offer);
     self.pc.setLocalDescription(offer, function() {
-      console.log('Set localDescription to offer');
-      console.log('Created offer.');
-      // console.log(offer);
-      // console.log(offer.sdp.indexOf('\n'));
-      // console.log(offer.sdp.indexOf('&crarr;'));
-      // console.log(offer.sdp.indexOf("&#8629;"));
-      // console.log(escape(offer.sdp));
+      console.log('Set localDescription to', offer);
       self._send({
         type: 'OFFER',  //Label for the message switch
         payload: {
@@ -190,12 +192,12 @@ ExchangeManager.prototype._makeOffer = function() {
           labels: self.labels            //not sure
         }
       });
-      // We can now reset labels because all info has been communicated.
-      self.labels = {};
     }, function handleError(err) {
       //throw err;
       console.log('Failed to setLocalDescription, ', err);
     });
+  }, function handleError(err){
+    console.log('Failed to create offer, ', err);
   });
 };
 
