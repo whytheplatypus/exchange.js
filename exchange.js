@@ -75,19 +75,20 @@ var Exchange = function(id){
  * @param  {JSON} data The packet of data to be handled
  * 
  */
-Exchange.prototype.handleBinary = function(data) {
-	// console.log(data);
-	// data = BSON.deserialize(data);
-	if(this.messages[data.hash] === undefined){
-		this.messages[data.hash] = new Array(data.length);
+Exchange.prototype._recieve = function(data) {
+	if(data.part === undefined){
+		this.ondata(data);
+	} else {
+		if(this.messages[data.hash] === undefined){
+			this.messages[data.hash] = new Array(data.length);
+		}
+		this.messages[data.hash][data.start] = data.part;
+		
+		console.log(this.messages);
+		if(md5(this.messages[data.hash].join("")) == data.hash){
+			this.ondata(JSON.parse(this.messages[data.hash].join("")));
+		}
 	}
-	this.messages[data.hash][data.start] = data.part;
-	// if(this.messages[data.hash])
-	console.log(this.messages);
-	if(md5(this.messages[data.hash].join("")) == data.hash){
-		this.ondata(JSON.parse(this.messages[data.hash].join("")));
-	}
-
 	// return data;
 }
 
@@ -99,18 +100,25 @@ Exchange.prototype.handleBinary = function(data) {
 Exchange.prototype._send = function(message, peer){
 	var self = this;
 	// try{
-	var message = JSON.stringify(message);
-	var hash = md5(message);
-	var parts = [];
-	for(var i = 0; i < message.length; i+=512){
-        var str = message.substr(i, 512);
-        parts.push(str);
-	}
-	for(var i = 0; i < parts.length; i++){
-		var packet = {exchange: true, start:i, part:parts[i], hash:hash, length:parts.length};
-		// console.log(packet);
-
-		self.enqueue({peer:peer, packet:JSON.stringify(packet)});
+	
+	console.log(self.connections[peer]);
+	var message;
+	if(self.connections[peer].reliable){
+		message.exchange = true;
+		message = JSON.stringify(message);
+		self.enqueue(message, peer);
+	} else {
+		message = JSON.stringify(message);
+		var hash = md5(message);
+		var parts = [];
+		for(var i = 0; i < message.length; i+=512){
+		    var str = message.substr(i, 512);
+		    parts.push(str);
+		}
+		for(var i = 0; i < parts.length; i++){
+			var packet = {exchange: true, start:i, part:parts[i], hash:hash, length:parts.length};
+			self.enqueue(JSON.stringify(packet), peer);
+		}
 	}
 
 		
@@ -120,20 +128,24 @@ Exchange.prototype._send = function(message, peer){
 }
 
 Exchange.prototype.enqueue = function(packet, peer) {
-	this.queue.push({peer: peer, packet: packet});
+	this.queue.push({peer: peer, packet: packet, attempts: 0});
 	this.dequeue();
 }
-
+Exchange.max_attempts = 10;
 Exchange.prototype.dequeue = function(){
 	var self = this;
 	if(this.queue.length > 0){
 		var waiting = this.queue.shift();
-		try{
-			self.connections[waiting.peer].send(waiting.packet);
-		} catch(e){
-			console.log(e);
-			this.queue.unshift(waiting);
-			this.dequeue();
+		if(waiting.attempts < Exchange.max_attempts){
+			try{
+				// console.log(waiting.packet);
+				self.connections[waiting.peer].send(waiting.packet);
+			} catch(e){
+				// console.log(e);
+				waiting.attempts++;
+				this.queue.push(waiting);
+				this.dequeue();
+			}
 		}
 	}
 }
@@ -150,7 +162,6 @@ Exchange.prototype.addDC = function(dc, peer) {
 	dc.onmessage = function(e){
 		var data = e.data;
 		console.log("got", e);
-		var keepParsing = true;
 		try{
 			data = JSON.parse(data);
 		} catch(error){
@@ -160,9 +171,8 @@ Exchange.prototype.addDC = function(dc, peer) {
 				throw error;
 			}
 		}
-		console.log(data);
 		if(data.exchange !== undefined){
-			self.handleBinary(data);
+			self._recieve(data);
 		} else {
 			if(typeof datacallback === 'function'){
 				datacallback(e);

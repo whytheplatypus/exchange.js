@@ -48,12 +48,13 @@ describe('Exchange', function(){
 			done();
 		});
 		after(function(){
-			describe("#connect(id)", function(){        
+			describe("#connect(id)", function(){  
+				this.timeout(10000);      
 				var manager = peer1.exchange.connect(peer2.id);
-		        var dc = manager.pc.createDataChannel(manager.peer, { reliable: false, protocol: "test" });
+		        var dc = manager.pc.createDataChannel(manager.peer, {protocol: "test" });
+		        console.log(dc);
 		        dc.onopen = function(){
-                    console.log("I'm open");
-                    // peer1.exchange.addDC(dc, peer2.id);
+                    peer1.exchange.addDC(dc, peer2.id);
                 };
 		        it("Should send an offer.", function(done){
 		        	peer2.exchange.on('peer', function(eventName, peerManager){
@@ -62,17 +63,16 @@ describe('Exchange', function(){
 		        		peerManager.pc.ondatachannel = function(e){
 		        			console.log(e);
 		        			e.channel.onopen = function(){
-		        				console.log("I'm open too");
-		        				// console.log("gets here");
-			        			// peer2.exchange.addDC(e.channel, peerManager.peer);
+		        				peer2.servers = [];
+		        				peer1.servers = [];
+			        			peer2.exchange.addDC(e.channel, peerManager.peer);
 			        			
-			        			// var m2 = peer2.exchange.connect(peer1.id, 'test');
-			        			// var dc2 = m2.pc.createDataChannel(m2.peer, { reliable: false });
-						        // dc2.onopen = function(){
-				          //           console.log("I'm open 2");
-				                    
-				          //       };
-				                done();
+			        			var m2 = peer2.exchange.connect(peer1.id, 'test');
+			        			var dc2 = m2.pc.createDataChannel(m2.peer, {});
+						        dc2.onopen = function(){
+				                    done();
+				                };
+				                
 				            }
 		        			
 		        		};
