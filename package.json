@@ -20,13 +20,15 @@
     "url": "https://github.com/whytheplatypus/exchange.js/issues"
   },
   "devDependencies": {
-    "grunt": "~0.4.1",
-    "grunt-contrib-connect": "~0.5.0",
-    "load-grunt-tasks": "~0.1.0",
-    "grunt-contrib-watch": "~0.5.3",
-    "time-grunt": "~0.1.1",
-    "grunt-contrib-uglify": "~0.2.4",
-    "grunt-contrib-clean": "~0.5.0",
-    "grunt-jsdoc": "~0.4.1"
+    "gulp": "^3.6.0",
+    "gulp-uglify": "^0.2.1",
+    "gulp-clean": "^0.2.4",
+    "gulp-jshint": "^1.5.1",
+    "tiny-lr": "0.0.5",
+    "gulp-livereload": "^1.2.0",
+    "connect": "^2.14.3",
+    "gulp-jsdoc": "^0.1.1",
+    "connect-livereload": "^0.3.2",
+    "gulp-concat": "^2.2.0"
   }
 }

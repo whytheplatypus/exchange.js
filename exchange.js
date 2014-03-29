@@ -103,11 +103,13 @@ Exchange.prototype._send = function(message, peer){
 	
 	console.log(self.connections[peer]);
 	var message;
-	if(self.connections[peer].reliable){
+	if(self.connections[peer].reliable || true){
+		console.log("reliable");
 		message.exchange = true;
 		message = JSON.stringify(message);
 		self.enqueue(message, peer);
 	} else {
+		console.log("not reliable");
 		message = JSON.stringify(message);
 		var hash = md5(message);
 		var parts = [];
@@ -159,6 +161,7 @@ Exchange.prototype.addDC = function(dc, peer) {
 
 	var datacallback = dc.onmessage;
 	var errorcallback = dc.onerror;
+	var closecallback = dc.onclose;
 	dc.onmessage = function(e){
 		var data = e.data;
 		console.log("got", e);
@@ -185,6 +188,13 @@ Exchange.prototype.addDC = function(dc, peer) {
 			errorcallback(e);
 		}
     }
+    dc.onclose = function(e){
+		self.connections[peer] = null;
+		delete self.connections[peer];
+		if(typeof closecallback === 'function'){
+			closecallback(e);
+		}
+    }
 	self.connections[peer] = dc;
 }
 
@@ -200,9 +210,12 @@ Exchange.prototype.initWS = function(server, protocol) {
 	var self = this;
 	var ws = new WebSocket(server);
 	ws.onmessage = function(e){
+		console.log(e);
 		var initialData = JSON.parse(e.data);
 		if(initialData.peers !== undefined){
-			// self.trigger('peers', initialData.peers);
+			console.log("running peers");
+			console.log(initialData.peers);
+			self.trigger('peers', initialData.peers);
 		} else {
 			console.log(initialData);
 			//translate from server speak to exchange speak

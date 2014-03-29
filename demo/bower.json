@@ -1,0 +1,22 @@
+{
+  "name": "demo",
+  "version": "0.0.1",
+  "homepage": "https://github.com/whytheplatypus/exchange.js",
+  "authors": [
+    "David Gage <whytheplatypus@gmail.com>"
+  ],
+  "description": "demo for exchange",
+  "main": "index.html",
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular": "~1.2.15"
+  }
+}

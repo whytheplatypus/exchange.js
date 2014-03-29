@@ -44,9 +44,11 @@ function ExchangeManager(id, peer, path, exchange, config, label) {
   // A default label in the event that none are passed in.
   this._default = 0;
 
-  if (!!this.id) {
-    this.initialize();
-  }
+  this._startPeerConnection();
+  // if (!!this.id) {
+  //   this.initialize();
+  // }
+
 };
 
 /**
@@ -96,22 +98,28 @@ ExchangeManager.prototype.initialize = function(id) {
   }*/
 
   // Set up PeerConnection.
-  this._startPeerConnection();
+  
 
   // Listen for ICE candidates.
   this._setupIce();
 
   // Listen for negotiation needed.
   // Chrome only--Firefox instead has to manually makeOffer.
-//  if (util.browserisms !== 'Firefox') {
+ // if (util.browserisms !== 'Firefox') {
   this._setupNegotiationHandler();
-//  } else if (this._options.originator) {
-//  //  this._firefoxHandlerSetup()
-//  //  this._firefoxAdditional()
-//  }
+ // } else if (this._options.originator) {
+  // this._firefoxHandlerSetup()
+  // this._firefoxAdditional()
+ // }
 
   this.initialize = function() { };
 };
+
+ExchangeManager.prototype.createDataChannel = function(peer, options){
+  var dc = this.pc.createDataChannel(peer, options);
+  this.initialize();
+  return dc;
+}
 
 /** Start a PC. */
 ExchangeManager.prototype._startPeerConnection = function() {
@@ -198,7 +206,14 @@ ExchangeManager.prototype._makeOffer = function() {
     });
   }, function handleError(err){
     console.log('Failed to create offer, ', err);
-  });
+  }, {
+        optional: [],
+        mandatory: {
+            OfferToReceiveAudio: false,
+            OfferToReceiveVideo: false,
+            // MozDontOfferDataChannel: false
+        }
+    });
 };
 
 //Public methods

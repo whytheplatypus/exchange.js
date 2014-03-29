@@ -51,10 +51,11 @@ describe('Exchange', function(){
 			describe("#connect(id)", function(){  
 				this.timeout(10000);      
 				var manager = peer1.exchange.connect(peer2.id);
-		        var dc = manager.pc.createDataChannel(manager.peer, {protocol: "test" });
+		        var dc = manager.createDataChannel(manager.peer, {reliable : true});
 		        console.log(dc);
 		        dc.onopen = function(){
                     peer1.exchange.addDC(dc, peer2.id);
+                    console.log(dc);
                 };
 		        it("Should send an offer.", function(done){
 		        	peer2.exchange.on('peer', function(eventName, peerManager){
@@ -68,7 +69,7 @@ describe('Exchange', function(){
 			        			peer2.exchange.addDC(e.channel, peerManager.peer);
 			        			
 			        			var m2 = peer2.exchange.connect(peer1.id, 'test');
-			        			var dc2 = m2.pc.createDataChannel(m2.peer, {});
+			        			var dc2 = m2.createDataChannel(m2.peer, {reliable: true});
 						        dc2.onopen = function(){
 				                    done();
 				                };
