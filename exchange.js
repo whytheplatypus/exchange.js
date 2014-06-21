@@ -11,7 +11,6 @@
  * @todo make it so we only start sending ice candidtates after we get an answer?
  * @todo verify that a packet has all the correct attributes set. (to, from, path).
  */
-// var BSON = bson().BSON;
 var Exchange = function(id){
 	var self = this;
 	this.id = id;

@@ -9,7 +9,10 @@
     <script type="text/javascript" src="bower_components/angular/angular.js"></script>
 </head>
 <body ng-app="exchangeDemo">
-  <div style="z-index:9999; position:absolute" ng-controller="demo">{{peers}}</div>
+  <div style="z-index:9999; position:absolute" ng-controller="demo">
+    {{peers}}
+    <div ng-repeat="connection in connections">{{connection | json : object}}</div>
+  </div>
   <canvas id="mice"></canvas>
   
 
@@ -38,8 +41,8 @@
 
       var brush = canvas.getContext("2d");
 
-      var host = 'localhost'
-          ,port = 8000;
+      var host = 'relay.whytheplatypus.technology'
+          ,port = 80;
 
       var protocol = {
           to: 'to',
@@ -55,58 +58,68 @@
 
       $scope.peers = 0;
 
+      function addPeer(dc){
+        dc.onopen = function(){
+          // me.addDC(dc, peer);
+          console.log(dc);
+          $scope.peers++;
+          $scope.connections.push(dc);
+          if(!$scope.$$phase) {
+            $scope.$apply();
+          }
+          dc.color = '#'+Math.floor(Math.random()*16777215).toString(16);
+          dc.onmessage = function(message){
+            var xy = JSON.parse(message.data);
+            
+            draw(dc.their_x, dc.their_y, xy.x, xy.y, dc.color);
+            dc.their_x = xy.x;
+            dc.their_y = xy.y
+          }
+          document.addEventListener("mousemove", function(mouse_event){
+            draw(dc.my_x, dc.my_y, mouse_event.x, mouse_event.y, "#000000");
+            dc.my_x = mouse_event.x;
+            dc.my_y = mouse_event.y
+            dc.send(JSON.stringify({x: mouse_event.x, y:mouse_event.y}));
+          });
+
+        };
+      }
+
       var me = new Exchange(Math.random().toString(36).substr(2));
+      $scope.connections = [];
       var peerjsServer = 'ws://' + host + ':' + port + '/?id='+me.id;
       me.on('peers', function(eventname, peers){
-        console.log(peers);
+        console.log("peers", peers);
         for(var i = 0; i < peers.length; i++){
           var peer = peers[i];
+          console.log("peer: ",peer);
           var manager = me.connect(peer);
-          var dc = manager.createDataChannel(manager.peer, {reliable : true});
-          dc.onopen = function(){
-            me.addDC(dc, peer);
-            console.log(dc);
-            $scope.peers++;
-            if(!$scope.$$phase) {
-              $scope.$apply();
-            }
-
-            dc.onmessage = function(message){
-              var xy = JSON.parse(message.data);
-              
-              draw(dc.their_x, dc.their_y, xy.x, xy.y);
-              dc.their_x = xy.x;
-              dc.their_y = xy.y
-            }
-            document.addEventListener("mousemove", function(mouse_event){
-              draw(dc.my_x, dc.my_y, mouse_event.x, mouse_event.y);
-              dc.my_x = mouse_event.x;
-              dc.my_y = mouse_event.y
-              dc.send(JSON.stringify({x: mouse_event.x, y:mouse_event.y}));
-            });
-
-          };
+          addPeer(manager.createDataChannel(manager.peer, {reliable : true, protocol: "draw"}));
+          
         }
       });
 
       me.on('peer', function(eventName, peerManager){
+        // console.log("connected from outside");
         peerManager.pc.ondatachannel = function(e){
           
           e.channel.onopen = function(){
             $scope.peers++;
+            $scope.connections.push(e.channel);
             if(!$scope.$$phase) {
               $scope.$apply();
             }
+            e.channel.color = '#'+Math.floor(Math.random()*16777215).toString(16);
             e.channel.onmessage = function(message){
               var xy = JSON.parse(message.data);
               
-              draw(e.channel.their_x, e.channel.their_y, xy.x, xy.y);
+              draw(e.channel.their_x, e.channel.their_y, xy.x, xy.y, e.channel.color);
               e.channel.their_x = xy.x;
               e.channel.their_y = xy.y
               
             }
             document.addEventListener("mousemove", function(mouse_event){
-              draw(e.channel.my_x, e.channel.my_y, mouse_event.x, mouse_event.y);
+              draw(e.channel.my_x, e.channel.my_y, mouse_event.x, mouse_event.y, "#000000");
               e.channel.my_x = mouse_event.x;
               e.channel.my_y = mouse_event.y
 
@@ -116,12 +129,11 @@
         };
         
       });
-
-      function draw(last_x, last_y, x, y){
-        console.log("draw");
+      
+      function draw(last_x, last_y, x, y, color){
         brush.beginPath();
-        brush.fillStyle = "#000000";
-        brush.strokeStyle = "#000000";
+        brush.fillStyle = color;
+        brush.strokeStyle = color;
         brush.lineWidth = 2;
         brush.moveTo(last_x, last_y);
 

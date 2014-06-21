@@ -6,6 +6,7 @@ var jshint = require('gulp-jshint');
 var lrserver = require('tiny-lr');
 var livereload = require('gulp-livereload');
 var concat = require('gulp-concat');
+var jsdoc = require("gulp-jsdoc");
 var connect = require('connect');
 
 // Edit this values to best suit your app
@@ -18,6 +19,8 @@ gulp.task('jshint', function() {
         .pipe(jshint())
         .pipe(jshint.reporter());
 });
+
+
 
 var lrs = lrserver();
 
@@ -38,6 +41,11 @@ gulp.task('http-server', function() {
     .listen(WEB_PORT);
 
     console.log('Server listening on http://localhost:' + WEB_PORT);
+});
+
+gulp.task('docs', function(){
+  gulp.src(['exchange.js', 'exchange_manager.js'])
+  .pipe(jsdoc('./docs'))
 });
 
 // start local http server with watch and livereload set up
