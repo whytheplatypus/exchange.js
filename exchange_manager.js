@@ -98,7 +98,7 @@ ExchangeManager.prototype.initialize = function(id) {
   }*/
 
   // Set up PeerConnection.
-  
+
 
   // Listen for ICE candidates.
   this._setupIce();
@@ -119,6 +119,13 @@ ExchangeManager.prototype.createDataChannel = function(peer, options){
   var dc = this.pc.createDataChannel(peer, options);
   this.initialize();
   return dc;
+}
+
+ExchangeManager.prototype.createVideoChannel = function(stream){
+  console.log(this.pc);
+  var stream = this.pc.addStream(stream);
+  this.initialize();
+  return stream;
 }
 
 /** Start a PC. */
@@ -172,7 +179,7 @@ ExchangeManager.prototype._makeAnswer = function() {
 /** Set up onnegotiationneeded. */
 ExchangeManager.prototype._setupNegotiationHandler = function() {
   var self = this;
-  
+
   if(window.webkitRTCPeerConnection !== undefined){
     console.log('Listening for `negotiationneeded`');
     this.pc.onnegotiationneeded = function() {

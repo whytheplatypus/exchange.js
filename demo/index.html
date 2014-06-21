@@ -14,11 +14,11 @@
     <div ng-repeat="connection in connections">{{connection | json : object}}</div>
   </div>
   <canvas id="mice"></canvas>
-  
+
 
   <script>
     var myApp = angular.module('exchangeDemo',[]);
- 
+
     myApp.controller('demo', ['$scope', function($scope) {
 
       var canvas = document.getElementById("mice");
@@ -26,10 +26,10 @@
       function adjustSize(){
         var SCREEN_WIDTH = window.innerWidth;
         var SCREEN_HEIGHT = window.innerHeight;
-      
+
         canvas.width = SCREEN_WIDTH;
         canvas.height = SCREEN_HEIGHT;
-        
+
         canvas.style.position = 'absolute';
         canvas.style.left = (window.innerWidth - SCREEN_WIDTH) * .5 + 'px';
         canvas.style.top = (window.innerHeight - SCREEN_HEIGHT) * .5 + 'px';
@@ -70,7 +70,7 @@
           dc.color = '#'+Math.floor(Math.random()*16777215).toString(16);
           dc.onmessage = function(message){
             var xy = JSON.parse(message.data);
-            
+
             draw(dc.their_x, dc.their_y, xy.x, xy.y, dc.color);
             dc.their_x = xy.x;
             dc.their_y = xy.y
@@ -95,14 +95,14 @@
           console.log("peer: ",peer);
           var manager = me.connect(peer);
           addPeer(manager.createDataChannel(manager.peer, {reliable : true, protocol: "draw"}));
-          
+
         }
       });
 
       me.on('peer', function(eventName, peerManager){
         // console.log("connected from outside");
         peerManager.pc.ondatachannel = function(e){
-          
+
           e.channel.onopen = function(){
             $scope.peers++;
             $scope.connections.push(e.channel);
@@ -116,7 +116,7 @@
               draw(e.channel.their_x, e.channel.their_y, xy.x, xy.y, e.channel.color);
               e.channel.their_x = xy.x;
               e.channel.their_y = xy.y
-              
+
             }
             document.addEventListener("mousemove", function(mouse_event){
               draw(e.channel.my_x, e.channel.my_y, mouse_event.x, mouse_event.y, "#000000");
@@ -127,9 +127,9 @@
             });
           };
         };
-        
+
       });
-      
+
       function draw(last_x, last_y, x, y, color){
         brush.beginPath();
         brush.fillStyle = color;
@@ -160,8 +160,8 @@
         requestAnimationFrame(loop);
       }
       loop();
-      
-      
+
+
     }]);
   </script>
 </body>
