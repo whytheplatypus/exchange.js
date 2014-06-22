@@ -30,9 +30,10 @@ function ExchangeManager(id, peer, path, exchange, config, label) {
   this.protocol = config.protocol;
   this._options = config;
   this.path = path;
+  this.label = label
   this._send = function(data){
     console.log(label);
-    exchange.emit(data, peer, self.path, label);
+    exchange.emit(data, peer, self.path, self.label);
   };
   this.id = id; //local peer
   this.peer = peer; //remote peer

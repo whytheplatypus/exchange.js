@@ -20,7 +20,7 @@ var Exchange = function(id){
      * @type {Object}
      */
     this.managers = {};
-    
+
 	if(arguments.length > 2){
 		this.connections = arguments[2];
 		for(var peer in this.connections){
@@ -40,7 +40,7 @@ var Exchange = function(id){
 	}
 
 	/**
-	 * Array of connected websocket servers their protocols eg. [{socket: ws, 
+	 * Array of connected websocket servers their protocols eg. [{socket: ws,
 	 *   protocol:{
 	 * 		to: 'to',
      *      from: 'from',
@@ -58,7 +58,7 @@ var Exchange = function(id){
 	this.servers = [];
 
 	this.queue = [];
-	
+
 	/**
 	 * The currently building messages from reliable. {hash: [chunks], }
 	 * @type {Object}
@@ -72,7 +72,7 @@ var Exchange = function(id){
  * Handles data that has been split up into smaller chuncks
  * labled by md5 hashes.
  * @param  {JSON} data The packet of data to be handled
- * 
+ *
  */
 Exchange.prototype._recieve = function(data) {
 	if(data.part === undefined){
@@ -82,7 +82,7 @@ Exchange.prototype._recieve = function(data) {
 			this.messages[data.hash] = new Array(data.length);
 		}
 		this.messages[data.hash][data.start] = data.part;
-		
+
 		console.log(this.messages);
 		if(md5(this.messages[data.hash].join("")) == data.hash){
 			this.ondata(JSON.parse(this.messages[data.hash].join("")));
@@ -99,7 +99,7 @@ Exchange.prototype._recieve = function(data) {
 Exchange.prototype._send = function(message, peer){
 	var self = this;
 	// try{
-	
+
 	console.log(self.connections[peer]);
 	var message;
 	if(self.connections[peer].reliable || true){
@@ -122,7 +122,7 @@ Exchange.prototype._send = function(message, peer){
 		}
 	}
 
-		
+
 	// } catch(e){
 		// console.log(e);
 	// }
@@ -153,7 +153,7 @@ Exchange.prototype.dequeue = function(){
 /**
  * setup a new datachannel to be used for exchange.
  * @param  {DataChannel} dc The datachannel used to send exchange information
- * 
+ *
  */
 Exchange.prototype.addDC = function(dc, peer) {
 	var self = this;
@@ -230,7 +230,7 @@ Exchange.prototype.initWS = function(server, protocol) {
 				self.ondata(JSON.parse(e.data));
 			}
 		}
-		
+
 	}
 	ws.onclose = function(e){
 		//remove server
@@ -250,7 +250,7 @@ Exchange.prototype.ondata = function(data) {
 		this.forward(data);
 	} else {
 		//this.handleReliable(data);
-		
+
 		if(data.path.indexOf(this.id) == -1){
 			data.path.push(this.id);
 		}
@@ -260,13 +260,13 @@ Exchange.prototype.ondata = function(data) {
 		if(this.managers[data.from][data.label] !== undefined){
 			console.log("our type", data.payload.type);
 			this.managers[data.from][data.label].ondata(data.payload, data.path);
-		} 
+		}
 		else {
 			console.log("our type", data.payload.type);
 			console.log(this.id+" creating new manager for "+data.from);
 			console.log("with label" + data.label);
 			this.managers[data.from][data.label] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, data.label);
-			
+
 			this.managers[data.from][data.label].ondata(data.payload);
 			this.trigger('peer', this.managers[data.from][data.label]);
 		}
@@ -280,7 +280,7 @@ Exchange.prototype.ondata = function(data) {
  * next node in the path if the path exists. Or broadcasts
  * the data.
  * @param  {JSON} data The data to be forwarded
- * 
+ *
  */
 Exchange.prototype.forward = function(data) {
 	console.log("forwarding: ", data);
@@ -319,10 +319,10 @@ Exchange.prototype.forward = function(data) {
  * @param  {String} peer   The ID of the peer in this.connections to send the data to.
  * @param  {Array}  path    The Path to send the data along
  * @param  {String} to     The ID of the peer we're sending the data to.
- * 
+ *
  */
 Exchange.prototype.reliable = function(payload, peer, path, to, label) {
-	
+
 	var self = this;
 	// console.log(this.connections[peer]);
 
@@ -334,7 +334,7 @@ Exchange.prototype.reliable = function(payload, peer, path, to, label) {
 /**
  * Sends data from the current node out into the network.
  * The packet needs to have the "to" "from" and "path" attributes already set.
- * 
+ *
  * @param  {JSON} data The data packet to be sent
  *
  * @todo  translate server data to and from exchange data with _.map or something similar.
@@ -354,7 +354,7 @@ Exchange.prototype.emit = function(data, to, path, label) {
 		if(path.indexOf(this.id) == -1){
 			path.push(this.id);
 		}
-	
+
 		for(var peer in this.connections){
 			console.log(this.connections);
 			//don't send it back down the path
@@ -381,7 +381,7 @@ Exchange.prototype.emit = function(data, to, path, label) {
 
 		this.reliable(data, path[nextPeer], path, to, label);
 	}
-	
+
 }
 
 Exchange.prototype.on = function(event, callback) {
