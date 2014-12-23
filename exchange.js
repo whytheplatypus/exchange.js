@@ -1,38 +1,25 @@
 
 /**
- * The Exchange class, creates and manages peer exchange logic.
- * @constructor
- * @param  {String} id The id used to identify the local machiene
- *
- * @todo keep track of jumps and time out a request after some number
- * @todo identify all requests with a md5 hash
- * @todo custom error objects
- * @todo fix it so already broken up chunks get forwarded
- * @todo make it so we only start sending ice candidtates after we get an answer?
- * @todo verify that a packet has all the correct attributes set. (to, from, path).
- */
+* The Exchange class, creates and manages peer exchange logic.
+* @constructor
+* @param  {String} id The id used to identify the local machiene
+*
+* @todo keep track of jumps and time out a request after some number
+* @todo identify all requests with a md5 hash
+* @todo custom error objects
+* @todo fix it so already broken up chunks get forwarded
+* @todo make it so we only start sending ice candidtates after we get an answer?
+* @todo verify that a packet has all the correct attributes set. (to, from, path).
+*/
 var Exchange = function(id){
 	var self = this;
 	this.id = id;
 
-    /**
-     * {peer: ExchangeManager} pairs
-     * @type {Object}
-     */
-    this.managers = {};
-
-	if(arguments.length > 2){
-		this.connections = arguments[2];
-		for(var peer in this.connections){
-			this.addDC(this.connections[peer], peer);
-		}
-	} else {
-		/**
-		 * Key/Value of directly connected peers
-		 * @type {Object}
-		 */
-		this.connections = {};
-	}
+	/**
+	* {peer: Exchange.Manager} pairs
+	* @type {Object}
+	*/
+	this.managers = {};
 
 	this.events = {
 		'peer': new Array(),
@@ -40,172 +27,33 @@ var Exchange = function(id){
 	}
 
 	/**
-	 * Array of connected websocket servers their protocols eg. [{socket: ws,
-	 *   protocol:{
-	 * 		to: 'to',
-     *      from: 'from',
-     *      type: 'type',
-     *      payload: 'payload',
-     *      ignore: 'OPEN',
-     *      offer: 'OFFER',
-     *      answer: 'ANSWER',
-     *      candidate: 'CANDIDATE',
-     *      port: 'PORT'
-	 *   }
-	 * }]
-	 * @type {Array}
-	 */
+	* Array of connected websocket servers their protocols eg. [{socket: ws,
+	*   protocol:{
+	* 		to: 'to',
+	*      from: 'from',
+	*      type: 'type',
+	*      payload: 'payload',
+	*      ignore: 'OPEN',
+	*      offer: 'OFFER',
+	*      answer: 'ANSWER',
+	*      candidate: 'CANDIDATE',
+	*      port: 'PORT'
+	*   }
+	* }]
+	* @type {Array}
+	*/
 	this.servers = [];
-
-	this.queue = [];
-
-	/**
-	 * The currently building messages from reliable. {hash: [chunks], }
-	 * @type {Object}
-	 */
-	this.messages = {};
-
-	// this.queueInterval = setInterval(self.dequeue.bind(this), 250);
 }
 
 /**
- * Handles data that has been split up into smaller chuncks
- * labled by md5 hashes.
- * @param  {JSON} data The packet of data to be handled
- *
- */
-Exchange.prototype._recieve = function(data) {
-	if(data.part === undefined){
-		this.ondata(data);
-	} else {
-		if(this.messages[data.hash] === undefined){
-			this.messages[data.hash] = new Array(data.length);
-		}
-		this.messages[data.hash][data.start] = data.part;
-
-		console.log(this.messages);
-		if(md5(this.messages[data.hash].join("")) == data.hash){
-			this.ondata(JSON.parse(this.messages[data.hash].join("")));
-		}
-	}
-	// return data;
-}
-
-/**
- * Local send wrapper.
- * @param  {String} message The String to be sent.
- * @param  {String} peer    The name of the datachannel in this.connections to send the message along.
- */
-Exchange.prototype._send = function(message, peer){
-	var self = this;
-	// try{
-
-	console.log(self.connections[peer]);
-	var message;
-	if(self.connections[peer].reliable || true){
-		console.log("reliable");
-		message.exchange = true;
-		message = JSON.stringify(message);
-		self.enqueue(message, peer);
-	} else {
-		console.log("not reliable");
-		message = JSON.stringify(message);
-		var hash = md5(message);
-		var parts = [];
-		for(var i = 0; i < message.length; i+=512){
-		    var str = message.substr(i, 512);
-		    parts.push(str);
-		}
-		for(var i = 0; i < parts.length; i++){
-			var packet = {exchange: true, start:i, part:parts[i], hash:hash, length:parts.length};
-			self.enqueue(JSON.stringify(packet), peer);
-		}
-	}
-
-
-	// } catch(e){
-		// console.log(e);
-	// }
-}
-
-Exchange.prototype.enqueue = function(packet, peer) {
-	this.queue.push({peer: peer, packet: packet, attempts: 0});
-	this.dequeue();
-}
-Exchange.max_attempts = 10;
-Exchange.prototype.dequeue = function(){
-	var self = this;
-	if(this.queue.length > 0){
-		var waiting = this.queue.shift();
-		if(waiting.attempts < Exchange.max_attempts){
-			try{
-				// console.log(waiting.packet);
-				self.connections[waiting.peer].send(waiting.packet);
-			} catch(e){
-				// console.log(e);
-				waiting.attempts++;
-				this.queue.push(waiting);
-				this.dequeue();
-			}
-		}
-	}
-}
-/**
- * setup a new datachannel to be used for exchange.
- * @param  {DataChannel} dc The datachannel used to send exchange information
- *
- */
-Exchange.prototype.addDC = function(dc, peer) {
-	var self = this;
-
-	var datacallback = dc.onmessage;
-	var errorcallback = dc.onerror;
-	var closecallback = dc.onclose;
-	dc.onmessage = function(e){
-		var data = e.data;
-		console.log("got", e);
-		try{
-			data = JSON.parse(data);
-		} catch(error){
-			if(typeof datacallback === 'function'){
-				datacallback(e);
-			} else {
-				throw error;
-			}
-		}
-		if(data.exchange !== undefined){
-			self._recieve(data);
-		} else {
-			if(typeof datacallback === 'function'){
-				datacallback(e);
-			}
-		}
-	}
-	dc.onerror = function(e){
-		console.log('ERROR: ', e);
-		if(typeof errorcallback === 'function'){
-			errorcallback(e);
-		}
-    }
-    dc.onclose = function(e){
-		self.connections[peer] = null;
-		delete self.connections[peer];
-		if(typeof closecallback === 'function'){
-			closecallback(e);
-		}
-    }
-	self.connections[peer] = dc;
-}
-
-/**
- * Add a websocket server to the list of servers.
- * @todo  test open.
- * @todo  data specific protocol names
- * @todo  let ignore be an array
- * @param  {String} server       A websocket server address.
- * @param  {Object}    protocol The translation from our protocol to theirs.
- */
-Exchange.prototype.initWS = function(server, protocol) {
+* Add a websocket server to the list of servers.
+* @todo  test open.
+* @todo  data specific protocol names
+* @todo  let ignore be an array
+* @param  {String} server       A websocket server address.
+* @param  {Object}    protocol The translation from our protocol to theirs.
+*/
+Exchange.prototype.initServer = function(server, protocol) {
 	var self = this;
 	var ws = new WebSocket(server);
 	ws.onmessage = function(e){
@@ -240,20 +88,15 @@ Exchange.prototype.initWS = function(server, protocol) {
 }
 
 /**
- * Route exchange data to the correct ExchangeManager
- * @param  {JSON} data The JSON object to be routed
- * @todo rewrite the case where we don't have a manager for that id and emit an 'offer' event
- */
+* Route exchange data to the correct Exchange.Manager
+* @param  {JSON} data The JSON object to be routed
+* @todo rewrite the case where we don't have a manager for that id and emit an 'offer' event
+*/
 Exchange.prototype.ondata = function(data) {
 	console.log("handeling", data);
 	if(data.to != this.id){
 		this.forward(data);
 	} else {
-		//this.handleReliable(data);
-
-		if(data.path.indexOf(this.id) == -1){
-			data.path.push(this.id);
-		}
 		if(this.managers[data.from] === undefined){
 			this.managers[data.from] = {};
 		}
@@ -265,7 +108,7 @@ Exchange.prototype.ondata = function(data) {
 			console.log("our type", data.payload.type);
 			console.log(this.id+" creating new manager for "+data.from);
 			console.log("with label" + data.label);
-			this.managers[data.from][data.label] = new ExchangeManager(this.id, data.from, data.path.reverse(), this, {}, data.label);
+			this.managers[data.from][data.label] = new Exchange.Manager(this.id, data.from, data.path.reverse(), this, {}, data.label);
 
 			this.managers[data.from][data.label].ondata(data.payload);
 			this.trigger('peer', this.managers[data.from][data.label]);
@@ -274,112 +117,26 @@ Exchange.prototype.ondata = function(data) {
 }
 
 /**
- * For data not ment for this node, pass it along.
- * Sends the data directly to the intended peer if
- * a conneciton already exists, passes the data to the
- * next node in the path if the path exists. Or broadcasts
- * the data.
- * @param  {JSON} data The data to be forwarded
- *
- */
-Exchange.prototype.forward = function(data) {
-	console.log("forwarding: ", data);
-	if(this.connections[data.to] !== undefined){
-		if(data.path.indexOf(this.id) == -1){
-			data.path.push(this.id);
+* Sends data from the current node out into the network.
+* The packet needs to have the "to" "from" and "path" attributes already set.
+*
+* @param  {JSON} data The data packet to be sent
+*
+* @todo  translate server data to and from exchange data with _.map or something similar.
+*/
+Exchange.prototype.emit = function(data, to, label) {
+
+	for(var i = 0; i < this.servers.length; i++){
+		//translate from exchange speak to server speak
+		var server = this.servers[i];
+		if(server.socket.readyState == 1){
+			var serverData = {}
+			serverData[server.protocol.to] = to;
+			serverData[server.protocol.from] = this.id;
+			serverData['label'] = label;
+			serverData['payload'] = data;
+			server.socket.send(JSON.stringify(serverData));
 		}
-		//this.connections[data.to].send(BSON.serialize(data, false, true, false));
-		this._send(data, data.to);
-	} else if(data.path.indexOf(this.id)+1 == data.path.length || data.path.indexOf(this.id) == -1){
-		if(data.path.indexOf(this.id) == -1){
-			data.path.push(this.id);
-		}
-		for(var peer in this.connections){
-			//don't send it back down the path
-			if(data.path.indexOf(peer) == -1){
-				this._send(data, peer);
-				//this.connections[peer].send(BSON.serialize(data, false, true, false));
-			}
-		}
-	} else if(data.path.indexOf(this.id) > -1){
-		//the path is already set up
-		var nextPeer = data.path[data.path.indexOf(this.id)+1];
-		console.log(nextPeer);
-		this._send(data, nextPeer);
-		//this.connections[nextPeer].send(BSON.serialize(data, false, true, false));
-	}
-}
-
-
-
-/**
- * Breakes up a string into reasonable chunks of data
- * and sends them out
- * @param  {String} string The string to be sent
- * @param  {String} peer   The ID of the peer in this.connections to send the data to.
- * @param  {Array}  path    The Path to send the data along
- * @param  {String} to     The ID of the peer we're sending the data to.
- *
- */
-Exchange.prototype.reliable = function(payload, peer, path, to, label) {
-
-	var self = this;
-	// console.log(this.connections[peer]);
-
-	var packet = {path:path, from:this.id, to:to, payload: payload, label:label};
-
-	this._send(packet, peer);
-}
-
-/**
- * Sends data from the current node out into the network.
- * The packet needs to have the "to" "from" and "path" attributes already set.
- *
- * @param  {JSON} data The data packet to be sent
- *
- * @todo  translate server data to and from exchange data with _.map or something similar.
- */
-Exchange.prototype.emit = function(data, to, path, label) {
-	console.log("emit", data.type)
-	if(path.indexOf(to)+1 == path.length && path.indexOf(this.id) == -1){
-		path.unshift(this.id);
-	}
-	if(this.connections[to] !== undefined){
-		if(path.indexOf(this.id) == -1){
-			path.push(this.id);
-		}
-		console.log("emit", data.type)
-		this.reliable(data, to, path, to, label);
-	} else if(path.indexOf(this.id)+1 == path.length || path.indexOf(this.id) == -1){
-		if(path.indexOf(this.id) == -1){
-			path.push(this.id);
-		}
-
-		for(var peer in this.connections){
-			console.log(this.connections);
-			//don't send it back down the path
-			if(path.indexOf(peer) == -1){
-				this.reliable(data, peer, [], to, label);
-			}
-		}
-		for(var i = 0; i < this.servers.length; i++){
-			//translate from exchange speak to server speak
-			var server = this.servers[i];
-			if(server.socket.readyState == 1){
-				var serverData = {}
-				serverData[server.protocol.to] = to;
-				serverData[server.protocol.from] = this.id;
-				serverData['path'] = [];
-				serverData['label'] = label;
-				serverData['payload'] = data;
-				server.socket.send(JSON.stringify(serverData));
-			}
-		}
-	} else if(path.indexOf(this.id) > -1){
-		//the path is already set up
-		var nextPeer = path.indexOf(this.id)+1;
-
-		this.reliable(data, path[nextPeer], path, to, label);
 	}
 
 }
@@ -399,10 +156,10 @@ Exchange.prototype.trigger = function(event) {
 }
 
 /**
- * Starts a connection to some remote peer through the exchange.
- * @param  {String} id The ID to attempt to connect to.
- * @return {ExchangeManager} The ExchangeManager handeling the handshake to the remote peer, you can access the peerconnection object from this.
- */
+* Starts a connection to some remote peer through the exchange.
+* @param  {String} id The ID to attempt to connect to.
+* @return {Exchange.Manager} The Exchange.Manager handeling the handshake to the remote peer, you can access the peerconnection object from this.
+*/
 Exchange.prototype.connect = function(peer, label) {
 	console.log("connecting to ", peer);
 	if(label == undefined){
@@ -412,6 +169,280 @@ Exchange.prototype.connect = function(peer, label) {
 		this.managers[peer] = {};
 	}
 	console.log("label ", label);
-	this.managers[peer][label] = new ExchangeManager(this.id, peer, [], this, {}, label);
+	this.managers[peer][label] = new Exchange.Manager(this.id, peer, [], this, {}, label);
 	return this.managers[peer][label];
 }
+
+
+var RTCSessionDescription = window.mozRTCSessionDescription || window.RTCSessionDescription;
+var RTCPeerConnection = window.mozRTCPeerConnection || window.webkitRTCPeerConnection || window.RTCPeerConnection;
+var RTCIceCandidate = window.mozRTCIceCandidate || window.RTCIceCandidate;
+
+
+/**
+* Manages the handshake between two peers in the exchange.
+* @constructor
+* @param {String}     id       The ID of the local node.
+* @param {String}     peer     The ID of the remote node.
+* @param {Array}      path     If known, the path to follow to reach the remote node.
+* @param {Exchange}   exchange The local exchange.
+* @param {JSON}       options  Almost always empty (can specify a stun url that's about it)
+* @param {Function}   callback [description]
+*/
+function Exchange.Manager(id, peer, path, exchange, config, label) {
+	var self = this;
+	if(config.iceServers === undefined){
+		config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
+	}
+	if(config.protocol === undefined){
+		config.protocol = {
+
+			offer: 'OFFER',
+			answer: 'ANSWER',
+			candidate: 'CANDIDATE',
+			port: 'PORT'
+		}
+	}
+	this.protocol = config.protocol;
+	this._options = config;
+	this.path = path;
+	this.label = label
+	this._send = function(data){
+		console.log(label);
+		exchange.emit(data, peer, self.path, self.label);
+	};
+	this.id = id; //local peer
+	this.peer = peer; //remote peer
+	this.pc = null;
+	this.exchange = exchange;
+	// Mapping labels to metadata and serialization.
+	// label => { metadata: ..., serialization: ..., reliable: ...}
+	this.labels = {};
+	// A default label in the event that none are passed in.
+	this._default = 0;
+
+	this._startPeerConnection();
+	// if (!!this.id) {
+	//   this.initialize();
+	// }
+
+};
+
+/**
+* Handle handshake data.
+* @param  {JSON} data
+*/
+Exchange.Manager.prototype.ondata = function(data, path) {
+	var self = this;
+	if(path !== undefined){
+		this.path = path.reverse();
+	}
+	switch(data.type) {
+		case this.protocol.offer:
+		console.log("got offer");
+		self._setupIce();
+		self.update(data.payload.labels);
+		self.handleSDP(data.payload.sdp, data.type);
+		break;
+		case this.protocol.answer:
+		console.log("got answer");
+		this.handleSDP(data.payload.sdp, data.type);
+		break;
+		case this.protocol.candidate:
+		this.handleCandidate(data.payload, data.type);
+		break;
+		case this.protocol.port:
+		this.handlePort(data.payload);
+		break;
+		default:
+		console.log("got data I didn't know what to do with: ", data);
+		break;
+	}
+}
+
+/**
+* Initialize the manager.
+* @param  {String} id The ID of the local node.
+*/
+Exchange.Manager.prototype.initialize = function(id) {
+	if (!!id) {
+		this.id = id;
+	}
+
+		// Firefoxism where ports need to be generated.
+		/*if (util.browserisms === 'Firefox') {
+		this._firefoxPortSetup();
+	}*/
+
+	// Set up PeerConnection.
+
+
+	// Listen for ICE candidates.
+	this._setupIce();
+
+	// Listen for negotiation needed.
+	// Chrome only--Firefox instead has to manually makeOffer.
+	// if (util.browserisms !== 'Firefox') {
+	this._setupNegotiationHandler();
+	// } else if (this._options.originator) {
+	// this._firefoxHandlerSetup()
+	// this._firefoxAdditional()
+	// }
+
+	this.initialize = function() { };
+};
+
+Exchange.Manager.prototype.createDataChannel = function(peer, options){
+	var dc = this.pc.createDataChannel(peer, options);
+	this.initialize();
+	return dc;
+}
+
+Exchange.Manager.prototype.createVideoChannel = function(stream){
+	console.log(this.pc);
+	var stream = this.pc.addStream(stream);
+	this.initialize();
+	return stream;
+}
+
+/** Start a PC. */
+Exchange.Manager.prototype._startPeerConnection = function() {
+	console.log("starting PC");
+	this.pc = new RTCPeerConnection(this._options, { optional: [ { RtpDataChannels: true }, {DtlsSrtpKeyAgreement: true} ]});
+};
+
+/** Set up ICE candidate handlers. */
+Exchange.Manager.prototype._setupIce = function() {
+	var self = this;
+	console.log("setting up ICE");
+	this.pc.onicecandidate = function(evt) {
+		if (evt.candidate) {
+			console.log(evt.candidate);
+			self._send({
+				type: 'CANDIDATE',
+				payload: {
+					candidate: evt.candidate
+				}
+			});
+		}
+	};
+};
+
+/**
+* Creates an RTCSessionDescription and sends it back as an answer.
+*/
+Exchange.Manager.prototype._makeAnswer = function() {
+	var self = this;
+	this.pc.createAnswer(function(answer) {
+		console.log('Created answer.');
+		self.pc.setLocalDescription(answer, function() {
+			console.log('Set localDescription to answer.');
+			self._send({
+				type: 'ANSWER',
+				payload: {
+					sdp: answer
+				}
+			});
+		}, function(err) {
+			//throw err;
+			console.log('Failed to setLocalDescription from PEX, ', err); //why is this fireing on the broker?
+		});
+	}, function(err) {
+		//throw err;
+		console.log('Failed to create answer, ', err);
+	});
+};
+
+/** Set up onnegotiationneeded. */
+Exchange.Manager.prototype._setupNegotiationHandler = function() {
+	var self = this;
+
+	if(window.webkitRTCPeerConnection !== undefined){
+		console.log('Listening for `negotiationneeded`');
+		this.pc.onnegotiationneeded = function() {
+			console.log('`negotiationneeded` triggered');
+			self._makeOffer();
+		};
+	} else {
+		self._makeOffer();
+	}
+};
+
+/** Send an RTCSessionDescription offer for peer exchange. */
+Exchange.Manager.prototype._makeOffer = function() {
+	var self = this;
+	this.pc.createOffer(function setLocal(offer) {
+		console.log('Set localDescription to', offer);
+		self.pc.setLocalDescription(offer, function() {
+			console.log('Set localDescription to', offer);
+			self._send({
+				type: 'OFFER',  //Label for the message switch
+				payload: {
+					//browserisms: util.browserisms, //browser specific stuff
+					sdp: offer,                    //the info to connect to this peer
+					config: self._options.config,  //connection config info
+					labels: self.labels            //not sure
+				}
+			});
+		}, function handleError(err) {
+			//throw err;
+			console.log('Failed to setLocalDescription, ', err);
+		});
+	}, function handleError(err){
+		console.log('Failed to create offer, ', err);
+	}, {
+		optional: [],
+		mandatory: {
+			OfferToReceiveAudio: false,
+			OfferToReceiveVideo: false,
+			// MozDontOfferDataChannel: false
+		}
+	});
+};
+
+//Public methods
+
+/** Firefoxism: handle receiving a set of ports. */
+Exchange.Manager.prototype.handlePort = function(ports) {
+	console.log('Received ports, calling connectDataConnection.');
+	if (!Exchange.Manager.usedPorts) {
+		Exchange.Manager.usedPorts = [];
+	}
+	Exchange.Manager.usedPorts.push(ports.local);
+	Exchange.Manager.usedPorts.push(ports.remote);
+	this.pc.connectDataConnection(ports.local, ports.remote);
+};
+
+/** Handle an SDP. */
+Exchange.Manager.prototype.handleSDP = function(sdp, type) {
+	console.log("got "+type);
+	sdp = new RTCSessionDescription(sdp);
+	console.log(sdp);
+	var self = this;
+	this.pc.setRemoteDescription(sdp, function() {
+		console.log('Set remoteDescription: ' + type);
+		if (type === 'OFFER') {
+			self._makeAnswer();
+		}
+	}, function(err) {
+		//throw err;
+		console.log('Failed to setRemoteDescription, ', err);
+	});
+};
+
+/** Handle a candidate. */
+Exchange.Manager.prototype.handleCandidate = function(message) {
+	console.log(message);
+	var candidate = new RTCIceCandidate(message.candidate);
+	this.pc.addIceCandidate(candidate);
+	console.log('Added ICE candidate.');
+};
+
+/** Updates label:[serialization, reliable, metadata] pairs from offer. */
+Exchange.Manager.prototype.update = function(updates) {
+	var labels = Object.keys(updates);
+	for (var i = 0, ii = labels.length; i < ii; i += 1) {
+		var label = labels[i];
+		this.labels[label] = updates[label];
+	}
+};
