@@ -83,7 +83,18 @@ Exchange.prototype.initServer = function(server, protocol) {
 	ws.onclose = function(e){
 		//remove server
 	}
+
 	this.servers.push({socket: ws, protocol: protocol});
+
+	ws.promise = new Promise(function(resolve, reject){
+		ws.onopen = function(){
+			resolve(ws);
+		};
+		ws.onclose = function(){
+			reject(ws);
+		}
+	})
+
 	return ws;
 }
 
@@ -160,7 +171,7 @@ Exchange.prototype.trigger = function(event) {
 * @param  {String} id The ID to attempt to connect to.
 * @return {Exchange.Manager} The Exchange.Manager handeling the handshake to the remote peer, you can access the peerconnection object from this.
 */
-Exchange.prototype.connect = function(peer, label) {
+Exchange.prototype._connect = function(peer, label) {
 	console.log("connecting to ", peer);
 	if(label == undefined){
 		label = "base";
@@ -173,6 +184,15 @@ Exchange.prototype.connect = function(peer, label) {
 	return this.managers[peer][label];
 }
 
+//for audio video call
+Exchange.prototype.call = function(peer, label){
+
+}
+
+//for data connection
+Exchange.prototype.connect = function(peer, label){
+
+}
 
 var RTCSessionDescription = window.mozRTCSessionDescription || window.RTCSessionDescription;
 var RTCPeerConnection = window.mozRTCPeerConnection || window.webkitRTCPeerConnection || window.RTCPeerConnection;
@@ -189,7 +209,7 @@ var RTCIceCandidate = window.mozRTCIceCandidate || window.RTCIceCandidate;
 * @param {JSON}       options  Almost always empty (can specify a stun url that's about it)
 * @param {Function}   callback [description]
 */
-function Exchange.Manager(id, peer, path, exchange, config, label) {
+Exchange.Manager = function(id, peer, path, exchange, config, label) {
 	var self = this;
 	if(config.iceServers === undefined){
 		config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
