@@ -23,11 +23,7 @@ var peer3 = {
 	id:Math.random().toString(36).substr(2)
 };
 var peerjsServer = 'ws://' + host + ':' + port + '/?id='+peer1.id;
-// var _socket1 = new WebSocket(peerjsServer);
 var peerjsServer2 = 'ws://' + host + ':' + port + '/?id='+peer2.id;
-// var _socket2 = new WebSocket(peerjsServer2);
-// _socket2.onclose = function(){console.log('2 closed');};
-// _socket1.onclose = function(){console.log('1 closed');};
 peer1.exchange = new Exchange(peer1.id);
 peer2.exchange = new Exchange(peer2.id);
 peer1.server = peer1.exchange.initServer(peerjsServer, protocol);
@@ -60,19 +56,19 @@ describe('Exchange', function(){
             throw "we're ignoring the graph for now";
         });
         peer2.exchange.on('peer', function(eventName, peerManager){
-          console.info("got a peer");
+
           expect(peerManager.pc).to.be.a(RTCPeerConnection);
-          console.log(peerManager.pc);
+
           peerManager.pc.ondatachannel = function(e){
-            console.log(e);
-            console.debug("channel!");
+
+
             e.channel.onopen = function(){
               e.channel.onmessage = function(message){
-                console.debug(message);
+
               }
-              console.log("OPEN!");
+
               setInterval(function(){
-                console.log("sending");
+
                 e.channel.send("ping");
               }, 1000)
 
@@ -87,22 +83,16 @@ describe('Exchange', function(){
     this.timeout(10000);
     it("Should establish a connection.", function(done){
       Promise.all([peer1.server.promise, peer2.server.promise]).then(function(){
-        console.info(arguments);
-        console.info("test");
-        var manager = peer1.exchange._connect(peer2.id);
-        var dc = manager.createDataChannel(peer2.id, {reliable : true});
-        console.log(dc);
-        dc.onopen = function(){
-          console.log(dc);
 
+
+        var dc = peer1.exchange.openPipe(peer2.id, {reliable : true});
+        dc.promise.then(function(){
           dc.onmessage = function(message){
-            console.debug(message)
             dc.send("pong")
-            console.info("says it's done");
+
             return done();
           }
-
-        };
+        })
       });
     });
   });

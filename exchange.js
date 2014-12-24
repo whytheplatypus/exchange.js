@@ -203,14 +203,29 @@ Exchange.prototype._connect = function(peer, label, config) {
 	return this.managers[peer][label];
 }
 
+//Think of this as a plugin:
 //for audio video call
-Exchange.prototype.call = function(peer, label){
-
+Exchange.prototype.call = function(peer, stream, label, config){
+	var manager = this._connect(peer, label, config);
+	var stream = manager.pc.addStream(stream);
+	manager.initialize();
+	return stream;
 }
 
 //for data connection
-Exchange.prototype.connect = function(peer, label){
-
+Exchange.prototype.openPipe = function(peer, options, label, config){
+	var manager = this._connect(peer, label, config)
+	var dc = manager.pc.createDataChannel(peer, options);
+	manager.initialize();
+	dc.promise = new Promise(function(resolve, reject){
+		dc.onopen = function(){
+			resolve(dc);
+		};
+		dc.onclose = function(){
+			reject(dc);
+		}
+	})
+	return dc;
 }
 
 var RTCSessionDescription = window.mozRTCSessionDescription || window.RTCSessionDescription;
@@ -265,19 +280,6 @@ Exchange.Manager = function(config) {
 
 };
 
-Exchange.Manager.prototype.createDataChannel = function(peer, options){
-	var dc = this.pc.createDataChannel(peer, options);
-	this.initialize();
-	return dc;
-}
-
-Exchange.Manager.prototype.createVideoChannel = function(stream){
-	var stream = this.pc.addStream(stream);
-	this.initialize();
-	return stream;
-}
-
-
 /**
 * Handle handshake data.
 * @param  {JSON} data
@@ -287,20 +289,18 @@ Exchange.Manager.prototype.ondata = function(data) {
 	var self = this;
 	switch(data.type) {
 		case this.protocol.offer:
-		console.log("got offer");
 		self._setupIce();
 		self.update(data.payload.labels);
 		self.handleSDP(data.payload.sdp, data.type);
 		break;
 		case this.protocol.answer:
-		console.log("got answer");
 		this.handleSDP(data.payload.sdp, data.type);
 		break;
 		case this.protocol.candidate:
 		this.handleCandidate(data.payload, data.type);
 		break;
 		default:
-		console.error("got data I didn't know what to do with: ", data);
+		this._hook('error:data', data);
 		break;
 	}
 }
