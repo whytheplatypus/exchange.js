@@ -23,7 +23,8 @@ var Exchange = function(id){
 
 	this.events = {
 		'peer': new Array(),
-		'peers': new Array()
+		'peers': new Array(),
+		'pre:data': new Array()
 	}
 
 	/**
@@ -57,31 +58,21 @@ Exchange.prototype.initServer = function(server, protocol) {
 	var self = this;
 	var ws = new WebSocket(server);
 	ws.onmessage = function(e){
-		console.log(e);
 		var initialData = JSON.parse(e.data);
-		if(initialData.peers !== undefined){
-			console.log("running peers");
-			console.log(initialData.peers);
-			self.trigger('peers', initialData.peers);
-		} else {
-			console.log(initialData);
-			//translate from server speak to exchange speak
-			var data = {
-				to: initialData[protocol.to],
-				from: initialData[protocol.from],
-				path: [],
-				type: initialData[protocol.type],
-				payload: initialData[protocol.payload],
-				protocol: protocol
-			};
-			if(initialData.type != protocol.ignore){
-				self.ondata(JSON.parse(e.data));
-			}
+		self.trigger('pre:data', initialData);
+		//translate from server speak to exchange speak
+		var data = {
+			to: initialData[protocol.to],
+			from: initialData[protocol.from],
+			path: [],
+			type: initialData[protocol.type],
+			payload: initialData[protocol.payload],
+			protocol: protocol
+		};
+		if(initialData.type != protocol.ignore){
+			self.ondata(JSON.parse(e.data));
 		}
 
-	}
-	ws.onclose = function(e){
-		//remove server
 	}
 
 	this.servers.push({socket: ws, protocol: protocol});
@@ -104,26 +95,17 @@ Exchange.prototype.initServer = function(server, protocol) {
 * @todo rewrite the case where we don't have a manager for that id and emit an 'offer' event
 */
 Exchange.prototype.ondata = function(data) {
-	console.log("handeling", data);
-	if(data.to != this.id){
-		this.forward(data);
-	} else {
-		if(this.managers[data.from] === undefined){
-			this.managers[data.from] = {};
-		}
-		if(this.managers[data.from][data.label] !== undefined){
-			console.log("our type", data.payload.type);
-			this.managers[data.from][data.label].ondata(data.payload, data.path);
-		}
-		else {
-			console.log("our type", data.payload.type);
-			console.log(this.id+" creating new manager for "+data.from);
-			console.log("with label" + data.label);
-			this.managers[data.from][data.label] = new Exchange.Manager(this.id, data.from, data.path.reverse(), this, {}, data.label);
+	if(this.managers[data.from] === undefined){
+		this.managers[data.from] = {};
+	}
+	if(this.managers[data.from][data.label] !== undefined){
+		this.managers[data.from][data.label].ondata(data.payload, data.path);
+	}
+	else {
+		this.managers[data.from][data.label] = new Exchange.Manager(this.id, data.from, data.label, {}, this);
+		this.trigger('peer', this.managers[data.from][data.label]);
+		this.managers[data.from][data.label].ondata(data.payload);
 
-			this.managers[data.from][data.label].ondata(data.payload);
-			this.trigger('peer', this.managers[data.from][data.label]);
-		}
 	}
 }
 
@@ -171,16 +153,14 @@ Exchange.prototype.trigger = function(event) {
 * @param  {String} id The ID to attempt to connect to.
 * @return {Exchange.Manager} The Exchange.Manager handeling the handshake to the remote peer, you can access the peerconnection object from this.
 */
-Exchange.prototype._connect = function(peer, label) {
-	console.log("connecting to ", peer);
-	if(label == undefined){
-		label = "base";
-	}
+Exchange.prototype._connect = function(peer, label, config) {
 	if(this.managers[peer] === undefined){
 		this.managers[peer] = {};
 	}
-	console.log("label ", label);
-	this.managers[peer][label] = new Exchange.Manager(this.id, peer, [], this, {}, label);
+	if(label === undefined) label = "base";
+	if(config === undefined) config = {};
+
+	this.managers[peer][label] = new Exchange.Manager(this.id, peer, label, config, this);
 	return this.managers[peer][label];
 }
 
@@ -209,8 +189,12 @@ var RTCIceCandidate = window.mozRTCIceCandidate || window.RTCIceCandidate;
 * @param {JSON}       options  Almost always empty (can specify a stun url that's about it)
 * @param {Function}   callback [description]
 */
-Exchange.Manager = function(id, peer, path, exchange, config, label) {
+Exchange.Manager = function(id, peer, label, config, exchange) {
 	var self = this;
+	//should set up defaults;
+	if(config === undefined){
+		config = {};
+	}
 	if(config.iceServers === undefined){
 		config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
 	}
@@ -225,12 +209,12 @@ Exchange.Manager = function(id, peer, path, exchange, config, label) {
 	}
 	this.protocol = config.protocol;
 	this._options = config;
-	this.path = path;
+	// this.path = path;
 	this.label = label
 	this._send = function(data){
-		console.log(label);
-		exchange.emit(data, peer, self.path, self.label);
+		exchange.emit(data, peer, self.label);
 	};
+
 	this.id = id; //local peer
 	this.peer = peer; //remote peer
 	this.pc = null;
@@ -328,22 +312,25 @@ Exchange.Manager.prototype.createVideoChannel = function(stream){
 /** Start a PC. */
 Exchange.Manager.prototype._startPeerConnection = function() {
 	console.log("starting PC");
+	this._hook('pre:peerconnection');
 	this.pc = new RTCPeerConnection(this._options, { optional: [ { RtpDataChannels: true }, {DtlsSrtpKeyAgreement: true} ]});
+	this._hook('post:peerconnection', this.pc);
 };
 
 /** Set up ICE candidate handlers. */
 Exchange.Manager.prototype._setupIce = function() {
 	var self = this;
-	console.log("setting up ICE");
 	this.pc.onicecandidate = function(evt) {
 		if (evt.candidate) {
-			console.log(evt.candidate);
+			self._hook('post:icecandidate', evt);
 			self._send({
 				type: 'CANDIDATE',
 				payload: {
 					candidate: evt.candidate
 				}
 			});
+		} else {
+			self._hook('error:icecandidate', evt);
 		}
 	};
 };
@@ -353,10 +340,11 @@ Exchange.Manager.prototype._setupIce = function() {
 */
 Exchange.Manager.prototype._makeAnswer = function() {
 	var self = this;
+	this._hook('pre:createanswer');
 	this.pc.createAnswer(function(answer) {
-		console.log('Created answer.');
+		self._hook('pre:localdescription', answer, true);
 		self.pc.setLocalDescription(answer, function() {
-			console.log('Set localDescription to answer.');
+			self._hook('post:localdescription', answer, true);
 			self._send({
 				type: 'ANSWER',
 				payload: {
@@ -365,11 +353,10 @@ Exchange.Manager.prototype._makeAnswer = function() {
 			});
 		}, function(err) {
 			//throw err;
-			console.log('Failed to setLocalDescription from PEX, ', err); //why is this fireing on the broker?
+			self._hook('error:localdescription', err, answer, true);
 		});
 	}, function(err) {
-		//throw err;
-		console.log('Failed to create answer, ', err);
+		self._hook('error:createanswer');
 	});
 };
 
@@ -378,9 +365,7 @@ Exchange.Manager.prototype._setupNegotiationHandler = function() {
 	var self = this;
 
 	if(window.webkitRTCPeerConnection !== undefined){
-		console.log('Listening for `negotiationneeded`');
 		this.pc.onnegotiationneeded = function() {
-			console.log('`negotiationneeded` triggered');
 			self._makeOffer();
 		};
 	} else {
@@ -391,10 +376,12 @@ Exchange.Manager.prototype._setupNegotiationHandler = function() {
 /** Send an RTCSessionDescription offer for peer exchange. */
 Exchange.Manager.prototype._makeOffer = function() {
 	var self = this;
+	this._hook('pre:createoffer');
 	this.pc.createOffer(function setLocal(offer) {
-		console.log('Set localDescription to', offer);
+		self._hook('pre:localdescription', offer, false);
 		self.pc.setLocalDescription(offer, function() {
-			console.log('Set localDescription to', offer);
+			self._hook('post:localdescription', offer, false);
+			//i'm tempted to move this out of the manager and just use the post hook
 			self._send({
 				type: 'OFFER',  //Label for the message switch
 				payload: {
@@ -406,10 +393,10 @@ Exchange.Manager.prototype._makeOffer = function() {
 			});
 		}, function handleError(err) {
 			//throw err;
-			console.log('Failed to setLocalDescription, ', err);
+			self._hook('error:localdescription', offer, false);
 		});
 	}, function handleError(err){
-		console.log('Failed to create offer, ', err);
+		self._hook('error:createoffer', err);
 	}, {
 		optional: [],
 		mandatory: {
@@ -420,42 +407,29 @@ Exchange.Manager.prototype._makeOffer = function() {
 	});
 };
 
-//Public methods
-
-/** Firefoxism: handle receiving a set of ports. */
-Exchange.Manager.prototype.handlePort = function(ports) {
-	console.log('Received ports, calling connectDataConnection.');
-	if (!Exchange.Manager.usedPorts) {
-		Exchange.Manager.usedPorts = [];
-	}
-	Exchange.Manager.usedPorts.push(ports.local);
-	Exchange.Manager.usedPorts.push(ports.remote);
-	this.pc.connectDataConnection(ports.local, ports.remote);
-};
-
 /** Handle an SDP. */
 Exchange.Manager.prototype.handleSDP = function(sdp, type) {
-	console.log("got "+type);
-	sdp = new RTCSessionDescription(sdp);
-	console.log(sdp);
 	var self = this;
+	this._hook('pre:remotedescription', sdp, type);
+	sdp = new RTCSessionDescription(sdp);
 	this.pc.setRemoteDescription(sdp, function() {
-		console.log('Set remoteDescription: ' + type);
 		if (type === 'OFFER') {
 			self._makeAnswer();
 		}
+		self._hook('post:remotedescription', sdp, type);
 	}, function(err) {
 		//throw err;
-		console.log('Failed to setRemoteDescription, ', err);
+		self._hook('error:remotedescription', err, sdp, type);
 	});
 };
 
 /** Handle a candidate. */
 Exchange.Manager.prototype.handleCandidate = function(message) {
-	console.log(message);
+	//trigger an event-hook
+	this._hook('pre:icecandidate', message);
 	var candidate = new RTCIceCandidate(message.candidate);
 	this.pc.addIceCandidate(candidate);
-	console.log('Added ICE candidate.');
+	this._hook('post:icecandidate', candidate);
 };
 
 /** Updates label:[serialization, reliable, metadata] pairs from offer. */
@@ -466,3 +440,30 @@ Exchange.Manager.prototype.update = function(updates) {
 		this.labels[label] = updates[label];
 	}
 };
+
+Exchange.Manager.prototype._hook = function(name){
+	//think about regex at some point to conform to semver
+
+	if(!this.hooks){
+		this.hooks = {};
+	}
+	if(!this.hooks[name]){
+		this.hooks[name] = [];
+	}
+
+	for(var i = 0; i < this.hooks[name].length; i++){
+		this.hooks[name].apply(this, arguments);
+	}
+
+}
+
+Exchange.Manager.prototype.hook = function(name, callback){
+	if(!this.hooks){
+		this.hooks = {};
+	}
+	if(!this.hooks[name]){
+		this.hooks[name] = [];
+	}
+	//should test for function
+	this.hooks[name].push(callback);
+}
