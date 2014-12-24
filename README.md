@@ -9,8 +9,5 @@ I'll have more examples and a better description of how to work with exchange.js
 example in test.html should get you started. Any help and/or bug reports would be lovely!
 
 
-###[Docs](http://whytheplatypus.github.io/exchange.js/docs/): 
-`jsdoc exchange.js exchange_manager.js -d ./docs/`
-
-###Build:
-`uglifyjs *.js --screw-ie8 -o exchange.min.js`
+###[Docs](http://whytheplatypus.github.io/exchange.js/docs/):
+`jsdoc exchange.js -d ./docs/`
