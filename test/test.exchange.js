@@ -1,5 +1,5 @@
-var host = 'localhost'
-,port = 8000;
+var host = 'relay.whytheplatypus.technology'
+,port = 80;
 
 
 var protocol = {
