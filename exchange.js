@@ -59,7 +59,12 @@ Exchange.prototype.initServer = function(server, protocol) {
 	var ws = new WebSocket(server);
 	ws.onmessage = function(e){
 		var initialData = JSON.parse(e.data);
-		self.trigger('pre:data', initialData);
+		try{
+			self.trigger('pre:data', initialData);
+		} catch (e){
+			self.trigger('error:data', e, data);
+			return;
+		}
 		//translate from server speak to exchange speak
 		var data = {
 			to: initialData[protocol.to],
@@ -99,7 +104,7 @@ Exchange.prototype.ondata = function(data) {
 		this.managers[data.from] = {};
 	}
 	if(this.managers[data.from][data.label] !== undefined){
-		this.managers[data.from][data.label].ondata(data.payload, data.path);
+		this.managers[data.from][data.label].ondata(data.payload);
 	}
 	else {
 		this.managers[data.from][data.label] = this._connect(data.from, data.label, {});
@@ -452,7 +457,6 @@ Exchange.Manager.prototype._hook = function(name){
 	if(!this.hooks[name]){
 		this.hooks[name] = [];
 	}
-	console.log(name, this.hooks[name].length);
 	for(var i = 0; i < this.hooks[name].length; i++){
 		this.hooks[name][i].apply(this, arguments);
 	}

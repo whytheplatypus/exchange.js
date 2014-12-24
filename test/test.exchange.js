@@ -1,5 +1,6 @@
-var host = 'relay.whytheplatypus.technology'
-    ,port = 80;
+var host = 'localhost'
+,port = 8000;
+
 
 var protocol = {
     to: 'to',
@@ -40,10 +41,9 @@ describe('Exchange', function(){
 		});
 	});
 	describe("#initServer(websocket, protocol)", function(){
-		it("Should add the socket to the server list", function(done){
+		it("Should add the socket to the server list", function(){
 
       peer1.server.promise.then(function(){
-  			done();
         peer1.exchange.on('pre:data', function(name, data){
           if(data.peers)
             throw "we're ignoring the graph for now";
@@ -51,10 +51,10 @@ describe('Exchange', function(){
       });
 
 		});
-		it("Should add the socket to the server list", function(done){
+		it("Should add the socket to the server list", function(){
 
       peer2.server.promise.then(function(){
-  			done();
+
         peer2.exchange.on('pre:data', function(name, data){
           if(data.peers)
             throw "we're ignoring the graph for now";
@@ -87,8 +87,10 @@ describe('Exchange', function(){
     this.timeout(10000);
     it("Should establish a connection.", function(done){
       Promise.all([peer1.server.promise, peer2.server.promise]).then(function(){
+        console.info(arguments);
+        console.info("test");
         var manager = peer1.exchange._connect(peer2.id);
-        var dc = manager.createDataChannel(manager.peer, {reliable : true});
+        var dc = manager.createDataChannel(peer2.id, {reliable : true});
         console.log(dc);
         dc.onopen = function(){
           console.log(dc);
@@ -97,7 +99,7 @@ describe('Exchange', function(){
             console.debug(message)
             dc.send("pong")
             console.info("says it's done");
-            done();
+            return done();
           }
 
         };
