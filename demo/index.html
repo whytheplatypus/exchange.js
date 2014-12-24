@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Exchange Demo</title>
+    <script src="../exchange_manager.js"></script>
+    <script src="../exchange.js"></script>
+    <script src="../md5.js"></script>
+    <script type="text/javascript" src="bower_components/angular/angular.js"></script>
+</head>
+<body ng-app="exchangeDemo">
+  <div style="z-index:9999; position:absolute" ng-controller="demo">
+    {{peers}}
+    <div ng-repeat="connection in connections">{{connection | json : object}}</div>
+  </div>
+  <canvas id="mice"></canvas>
+
+
+  <script>
+    var myApp = angular.module('exchangeDemo',[]);
+
+    myApp.controller('demo', ['$scope', function($scope) {
+
+      var canvas = document.getElementById("mice");
+
+      function adjustSize(){
+        var SCREEN_WIDTH = window.innerWidth;
+        var SCREEN_HEIGHT = window.innerHeight;
+
+        canvas.width = SCREEN_WIDTH;
+        canvas.height = SCREEN_HEIGHT;
+
+        canvas.style.position = 'absolute';
+        canvas.style.left = (window.innerWidth - SCREEN_WIDTH) * .5 + 'px';
+        canvas.style.top = (window.innerHeight - SCREEN_HEIGHT) * .5 + 'px';
+      }
+      window.addEventListener('resize', adjustSize, false);
+      adjustSize();
+      var canvasW = canvas.width;
+      var canvasH = canvas.height;
+
+      var brush = canvas.getContext("2d");
+
+      var host = 'relay.whytheplatypus.technology'
+          ,port = 80;
+
+      var protocol = {
+          to: 'to',
+          from: 'from',
+          type: 'type',
+          payload: 'payload',
+          ignore: '',
+          offer: 'OFFER',
+          answer: 'ANSWER',
+          candidate: 'CANDIDATE',
+          port: 'PORT'
+      };
+
+      $scope.peers = 0;
+
+      function addPeer(dc){
+        dc.onopen = function(){
+          // me.addDC(dc, peer);
+          console.log(dc);
+          $scope.peers++;
+          $scope.connections.push(dc);
+          if(!$scope.$$phase) {
+            $scope.$apply();
+          }
+          dc.color = '#'+Math.floor(Math.random()*16777215).toString(16);
+          dc.onmessage = function(message){
+            var xy = JSON.parse(message.data);
+
+            draw(dc.their_x, dc.their_y, xy.x, xy.y, dc.color);
+            dc.their_x = xy.x;
+            dc.their_y = xy.y
+          }
+          document.addEventListener("mousemove", function(mouse_event){
+            draw(dc.my_x, dc.my_y, mouse_event.x, mouse_event.y, "#000000");
+            dc.my_x = mouse_event.x;
+            dc.my_y = mouse_event.y
+            dc.send(JSON.stringify({x: mouse_event.x, y:mouse_event.y}));
+          });
+
+        };
+      }
+
+      var me = new Exchange(Math.random().toString(36).substr(2));
+      $scope.connections = [];
+      var peerjsServer = 'ws://' + host + ':' + port + '/?id='+me.id;
+      me.on('peers', function(eventname, peers){
+        console.log("peers", peers);
+        for(var i = 0; i < peers.length; i++){
+          var peer = peers[i];
+          console.log("peer: ",peer);
+          var manager = me.connect(peer);
+          addPeer(manager.createDataChannel(manager.peer, {reliable : true, protocol: "draw"}));
+
+        }
+      });
+
+      me.on('peer', function(eventName, peerManager){
+        // console.log("connected from outside");
+        peerManager.pc.ondatachannel = function(e){
+
+          e.channel.onopen = function(){
+            $scope.peers++;
+            $scope.connections.push(e.channel);
+            if(!$scope.$$phase) {
+              $scope.$apply();
+            }
+            e.channel.color = '#'+Math.floor(Math.random()*16777215).toString(16);
+            e.channel.onmessage = function(message){
+              var xy = JSON.parse(message.data);
+              
+              draw(e.channel.their_x, e.channel.their_y, xy.x, xy.y, e.channel.color);
+              e.channel.their_x = xy.x;
+              e.channel.their_y = xy.y
+
+            }
+            document.addEventListener("mousemove", function(mouse_event){
+              draw(e.channel.my_x, e.channel.my_y, mouse_event.x, mouse_event.y, "#000000");
+              e.channel.my_x = mouse_event.x;
+              e.channel.my_y = mouse_event.y
+
+              e.channel.send(JSON.stringify({x: mouse_event.x, y:mouse_event.y}));
+            });
+          };
+        };
+
+      });
+
+      function draw(last_x, last_y, x, y, color){
+        brush.beginPath();
+        brush.fillStyle = color;
+        brush.strokeStyle = color;
+        brush.lineWidth = 2;
+        brush.moveTo(last_x, last_y);
+
+        brush.lineTo(x, y);
+        brush.stroke();
+        // brush.fill();
+      }
+
+      // context.beginPath();
+      // context.fillStyle = particle.fillColor;
+      // context.strokeStyle = particle.fillColor;
+      // context.lineWidth = particle.size;
+      // context.moveTo(lp.x, lp.y);
+      // context.lineTo(particle.position.x, particle.position.y);
+      // context.stroke();
+      // context.arc(particle.position.x, particle.position.y, particle.size/2, 0, Math.PI*2, true);
+      // context.fill();
+
+      me.initWS(peerjsServer, protocol);
+
+      function loop() {
+        brush.fillStyle = 'rgba(255,255,255,0.1)';
+        brush.fillRect(0, 0, brush.canvas.width, brush.canvas.height);
+        requestAnimationFrame(loop);
+      }
+      loop();
+
+
+    }]);
+  </script>
+</body>
+</html>

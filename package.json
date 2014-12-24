@@ -1,0 +1,34 @@
+{
+  "name": "exchange.js",
+  "version": "0.0.0",
+  "description": "A local exchange server that lets peers connect to eachother. This means that once peers are connected by some n degree of separation they can connect directly without needing a server.",
+  "main": "exchange.js",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/whytheplatypus/exchange.js.git"
+  },
+  "author": "",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/whytheplatypus/exchange.js/issues"
+  },
+  "devDependencies": {
+    "gulp": "^3.6.0",
+    "gulp-uglify": "^0.2.1",
+    "gulp-clean": "^0.2.4",
+    "gulp-jshint": "^1.5.1",
+    "tiny-lr": "0.0.5",
+    "gulp-livereload": "^1.2.0",
+    "connect": "^2.14.3",
+    "gulp-jsdoc": "^0.1.1",
+    "connect-livereload": "^0.3.2",
+    "gulp-concat": "^2.2.0"
+  }
+}

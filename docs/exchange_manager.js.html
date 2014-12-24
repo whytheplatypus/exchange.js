@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>JSDoc: Source: exchange_manager.js</title>
-    
+
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -16,16 +16,20 @@
 <body>
 
 <div id="main">
-    
+
     <h1 class="page-title">Source: exchange_manager.js</h1>
-    
+
     
 
 
     
     <section>
         <article>
-            <pre class="prettyprint source"><code>
+            <pre class="prettyprint source linenums"><code>var RTCSessionDescription = window.mozRTCSessionDescription || window.RTCSessionDescription;
+var RTCPeerConnection = window.mozRTCPeerConnection || window.webkitRTCPeerConnection || window.RTCPeerConnection;
+var RTCIceCandidate = window.mozRTCIceCandidate || window.RTCIceCandidate;
+
+
 /**
  * Manages the handshake between two peers in the exchange.
  * @constructor
@@ -36,7 +40,7 @@
  * @param {JSON}       options  Almost always empty (can specify a stun url that's about it)
  * @param {Function}   callback [description]
  */
-function ExchangeManager(id, peer, path, exchange, config, callback) {
+function ExchangeManager(id, peer, path, exchange, config, label) {
   var self = this;
   if(config.iceServers === undefined){
     config.iceServers = [{ 'url': 'stun:stun.l.google.com:19302' }];
@@ -54,27 +58,24 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
   this._options = config;
   this.path = path;
   this._send = function(data){
-    exchange.emit(data, peer, self.path);
+    console.log(label);
+    exchange.emit(data, peer, self.path, label);
   };
   this.id = id; //local peer
   this.peer = peer; //remote peer
   this.pc = null;
-
+  this.exchange = exchange;
   // Mapping labels to metadata and serialization.
   // label => { metadata: ..., serialization: ..., reliable: ...}
   this.labels = {};
   // A default label in the event that none are passed in.
   this._default = 0;
 
-  if(typeof(callback) == "function"){
-    this.onpeerconnection = callback;
-  } else {
-    this.onpeerconnection = function(pc, peer){};
-  }
+  this._startPeerConnection();
+  // if (!!this.id) {
+  //   this.initialize();
+  // }
 
-  if (!!this.id) {
-    this.initialize();
-  }
 };
 
 /**
@@ -82,15 +83,19 @@ function ExchangeManager(id, peer, path, exchange, config, callback) {
  * @param  {JSON} data
  */
 ExchangeManager.prototype.ondata = function(data, path) {
+  var self = this;
   if(path !== undefined){
     this.path = path.reverse();
   }
   switch(data.type) {
     case this.protocol.offer:
-      this.update(data.payload.labels);
-      this.handleSDP(data.payload.sdp, data.type);
+      console.log("got offer");
+      self._setupIce();
+      self.update(data.payload.labels);
+      self.handleSDP(data.payload.sdp, data.type);
       break;
     case this.protocol.answer:
+      console.log("got answer");
       this.handleSDP(data.payload.sdp, data.type);
       break;
     case this.protocol.candidate:
@@ -120,28 +125,33 @@ ExchangeManager.prototype.initialize = function(id) {
   }*/
 
   // Set up PeerConnection.
-  this._startPeerConnection();
+  
 
   // Listen for ICE candidates.
   this._setupIce();
 
   // Listen for negotiation needed.
   // Chrome only--Firefox instead has to manually makeOffer.
-//  if (util.browserisms !== 'Firefox') {
+ // if (util.browserisms !== 'Firefox') {
   this._setupNegotiationHandler();
-//  } else if (this._options.originator) {
-//  //  this._firefoxHandlerSetup()
-//  //  this._firefoxAdditional()
-//  }
+ // } else if (this._options.originator) {
+  // this._firefoxHandlerSetup()
+  // this._firefoxAdditional()
+ // }
 
   this.initialize = function() { };
 };
 
+ExchangeManager.prototype.createDataChannel = function(peer, options){
+  var dc = this.pc.createDataChannel(peer, options);
+  this.initialize();
+  return dc;
+}
+
 /** Start a PC. */
 ExchangeManager.prototype._startPeerConnection = function() {
   console.log("starting PC");
-  this.pc = new RTCPeerConnection(this._options.config, { optional: [ { RtpDataChannels: true } ]});
-  this.onpeerconnection(this.pc, this.peer);
+  this.pc = new RTCPeerConnection(this._options, { optional: [ { RtpDataChannels: true }, {DtlsSrtpKeyAgreement: true} ]});
 };
 
 /** Set up ICE candidate handlers. */
@@ -150,6 +160,7 @@ ExchangeManager.prototype._setupIce = function() {
   console.log("setting up ICE");
   this.pc.onicecandidate = function(evt) {
     if (evt.candidate) {
+      console.log(evt.candidate);
       self._send({
         type: 'CANDIDATE',
         payload: {
@@ -188,25 +199,25 @@ ExchangeManager.prototype._makeAnswer = function() {
 /** Set up onnegotiationneeded. */
 ExchangeManager.prototype._setupNegotiationHandler = function() {
   var self = this;
-  console.log('Listening for `negotiationneeded`');
-  this.pc.onnegotiationneeded = function() {
-    console.log('`negotiationneeded` triggered');
+  
+  if(window.webkitRTCPeerConnection !== undefined){
+    console.log('Listening for `negotiationneeded`');
+    this.pc.onnegotiationneeded = function() {
+      console.log('`negotiationneeded` triggered');
+      self._makeOffer();
+    };
+  } else {
     self._makeOffer();
-  };
+  }
 };
 
 /** Send an RTCSessionDescription offer for peer exchange. */
 ExchangeManager.prototype._makeOffer = function() {
   var self = this;
   this.pc.createOffer(function setLocal(offer) {
+    console.log('Set localDescription to', offer);
     self.pc.setLocalDescription(offer, function() {
-      console.log('Set localDescription to offer');
-      console.log('Created offer.');
-      // console.log(offer);
-      // console.log(offer.sdp.indexOf('\n'));
-      // console.log(offer.sdp.indexOf('&crarr;'));
-      // console.log(offer.sdp.indexOf("&#8629;"));
-      // console.log(escape(offer.sdp));
+      console.log('Set localDescription to', offer);
       self._send({
         type: 'OFFER',  //Label for the message switch
         payload: {
@@ -216,13 +227,20 @@ ExchangeManager.prototype._makeOffer = function() {
           labels: self.labels            //not sure
         }
       });
-      // We can now reset labels because all info has been communicated.
-      self.labels = {};
     }, function handleError(err) {
       //throw err;
       console.log('Failed to setLocalDescription, ', err);
     });
-  });
+  }, function handleError(err){
+    console.log('Failed to create offer, ', err);
+  }, {
+        optional: [],
+        mandatory: {
+            OfferToReceiveAudio: false,
+            OfferToReceiveVideo: false,
+            // MozDontOfferDataChannel: false
+        }
+    });
 };
 
 //Public methods
@@ -257,6 +275,7 @@ ExchangeManager.prototype.handleSDP = function(sdp, type) {
 
 /** Handle a candidate. */
 ExchangeManager.prototype.handleCandidate = function(message) {
+  console.log(message);
   var candidate = new RTCIceCandidate(message.candidate);
   this.pc.addIceCandidate(candidate);
   console.log('Added ICE candidate.');
@@ -285,7 +304,7 @@ ExchangeManager.prototype.update = function(updates) {
 <br clear="both">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.2.0</a> on Tue Jul 23 2013 09:16:00 GMT-0700 (PDT)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.0-alpha5</a> on Sat Mar 29 2014 14:10:43 GMT-0400 (EDT)
 </footer>
 
 <script> prettyPrint(); </script>

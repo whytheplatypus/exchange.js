@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>JSDoc: Class: ExchangeManager</title>
-    
+
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -16,35 +16,35 @@
 <body>
 
 <div id="main">
-    
+
     <h1 class="page-title">Class: ExchangeManager</h1>
-    
+
     
 
 
 
 <section>
-    
+
 <header>
     <h2>
     ExchangeManager
     </h2>
     
-</header>  
+</header>
 
 <article>
     <div class="container-overview">
     
-    
+
     
         
 <dt>
     <h4 class="name" id="ExchangeManager"><span class="type-signature"></span>new ExchangeManager<span class="signature">(id, peer, path, exchange, options, callback)</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Manages the handshake between two peers in the exchange.
@@ -52,38 +52,38 @@
     
 
     
+
     
-    
-    
+
     
         <h5>Parameters:</h5>
         
 
 <table class="params">
     <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
         <tr>
             
                 <td class="name"><code>id</code></td>
             
-            
+
             <td class="type">
             
                 
@@ -92,21 +92,21 @@
 
             
             </td>
+
             
+
             
-            
-            
-            
+
             <td class="description last">The ID of the local node.</td>
         </tr>
-	
-	
-	
+
+    
+
         <tr>
             
                 <td class="name"><code>peer</code></td>
             
-            
+
             <td class="type">
             
                 
@@ -115,21 +115,21 @@
 
             
             </td>
+
             
+
             
-            
-            
-            
+
             <td class="description last">The ID of the remote node.</td>
         </tr>
-	
-	
-	
+
+    
+
         <tr>
             
                 <td class="name"><code>path</code></td>
             
-            
+
             <td class="type">
             
                 
@@ -138,21 +138,21 @@
 
             
             </td>
+
             
+
             
-            
-            
-            
+
             <td class="description last">If known, the path to follow to reach the remote node.</td>
         </tr>
-	
-	
-	
+
+    
+
         <tr>
             
                 <td class="name"><code>exchange</code></td>
             
-            
+
             <td class="type">
             
                 
@@ -161,21 +161,21 @@
 
             
             </td>
+
             
+
             
-            
-            
-            
+
             <td class="description last">The local exchange.</td>
         </tr>
-	
-	
-	
+
+    
+
         <tr>
             
                 <td class="name"><code>options</code></td>
             
-            
+
             <td class="type">
             
                 
@@ -184,117 +184,119 @@
 
             
             </td>
+
             
+
             
-            
-            
-            
+
             <td class="description last">Almost always empty (can specify a stun url that's about it)</td>
         </tr>
-	
-	
-	
+
+    
+
         <tr>
             
                 <td class="name"><code>callback</code></td>
             
-            
+
             <td class="type">
             
                 
-<span class="param-type">Function</span>
+<span class="param-type">function</span>
 
 
             
             </td>
+
             
+
             
-            
-            
-            
+
             <td class="description last">[description]</td>
         </tr>
-	
-	
-	</tbody>
+
+    
+    </tbody>
 </table>
     
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line12">line 12</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line16">line 16</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
     
     </div>
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
-    
-    
+
     
         <h3 class="subsection-title">Methods</h3>
-        
+
         <dl>
             
 <dt>
     <h4 class="name" id="_makeAnswer"><span class="type-signature"></span>_makeAnswer<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Creates an RTCSessionDescription and sends it back as an answer.
@@ -302,56 +304,58 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line139">line 139</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line150">line 150</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -359,11 +363,11 @@
             
 <dt>
     <h4 class="name" id="_makeOffer"><span class="type-signature"></span>_makeOffer<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Send an RTCSessionDescription offer for peer exchange.
@@ -371,56 +375,58 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line172">line 172</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line188">line 188</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -428,11 +434,11 @@
             
 <dt>
     <h4 class="name" id="_setupIce"><span class="type-signature"></span>_setupIce<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Set up ICE candidate handlers.
@@ -440,56 +446,58 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line121">line 121</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line131">line 131</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -497,11 +505,11 @@
             
 <dt>
     <h4 class="name" id="_setupNegotiationHandler"><span class="type-signature"></span>_setupNegotiationHandler<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Set up onnegotiationneeded.
@@ -509,56 +517,58 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line162">line 162</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line173">line 173</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -566,11 +576,11 @@
             
 <dt>
     <h4 class="name" id="_startPeerConnection"><span class="type-signature"></span>_startPeerConnection<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Start a PC.
@@ -578,56 +588,58 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line114">line 114</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line125">line 125</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -635,11 +647,11 @@
             
 <dt>
     <h4 class="name" id="handleCandidate"><span class="type-signature"></span>handleCandidate<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Handle a candidate.
@@ -647,56 +659,58 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line232">line 232</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line250">line 250</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -704,11 +718,11 @@
             
 <dt>
     <h4 class="name" id="handlePort"><span class="type-signature"></span>handlePort<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Firefoxism: handle receiving a set of ports.
@@ -716,56 +730,58 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line204">line 204</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line222">line 222</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -773,11 +789,11 @@
             
 <dt>
     <h4 class="name" id="handleSDP"><span class="type-signature"></span>handleSDP<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Handle an SDP.
@@ -785,56 +801,58 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line215">line 215</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line233">line 233</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -842,11 +860,11 @@
             
 <dt>
     <h4 class="name" id="initialize"><span class="type-signature"></span>initialize<span class="signature">(id)</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Initialize the manager.
@@ -854,38 +872,38 @@
     
 
     
+
     
-    
-    
+
     
         <h5>Parameters:</h5>
         
 
 <table class="params">
     <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
         <tr>
             
                 <td class="name"><code>id</code></td>
             
-            
+
             <td class="type">
             
                 
@@ -894,64 +912,66 @@
 
             
             </td>
+
             
+
             
-            
-            
-            
+
             <td class="description last">The ID of the local node.</td>
         </tr>
-	
-	
-	</tbody>
+
+    
+    </tbody>
 </table>
     
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line85">line 85</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line90">line 90</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -959,11 +979,11 @@
             
 <dt>
     <h4 class="name" id="ondata"><span class="type-signature"></span>ondata<span class="signature">(data)</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Handle handshake data.
@@ -971,38 +991,38 @@
     
 
     
+
     
-    
-    
+
     
         <h5>Parameters:</h5>
         
 
 <table class="params">
     <thead>
-	<tr>
-		
-		<th>Name</th>
-		
-		
-		<th>Type</th>
-		
-		
-		
-		
-		
-		<th class="last">Description</th>
-	</tr>
-	</thead>
-	
-	<tbody>
-	
-	
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
         <tr>
             
                 <td class="name"><code>data</code></td>
             
-            
+
             <td class="type">
             
                 
@@ -1011,64 +1031,66 @@
 
             
             </td>
+
             
+
             
-            
-            
-            
+
             <td class="description last"></td>
         </tr>
-	
-	
-	</tbody>
+
+    
+    </tbody>
 </table>
     
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line57">line 57</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line58">line 58</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
@@ -1076,11 +1098,11 @@
             
 <dt>
     <h4 class="name" id="update"><span class="type-signature"></span>update<span class="signature">()</span><span class="type-signature"></span></h4>
-    
+
     
 </dt>
 <dd>
-    
+
     
     <div class="description">
         Updates label:[serialization, reliable, metadata] pairs from offer.
@@ -1088,68 +1110,70 @@
     
 
     
+
     
+
     
-    
-    
-    
+
     
 <dl class="details">
     
-        
-    
-    
+
     
 
     
+
     
+
     
+
     
+
     
+
     
+
     
-    
-    
-    
-    
-    
+
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line239">line 239</a>
+        <a href="exchange_manager.js.html">exchange_manager.js</a>, <a href="exchange_manager.js.html#line258">line 258</a>
     </li></ul></dd>
     
+
     
+
     
-    
-    
-    
+
     
 </dl>
 
+
     
+
     
 
     
 
     
+
     
+
     
-    
-    
-    
+
     
 </dd>
 
         </dl>
     
+
     
-    
-    
+
     
 </article>
 
-</section>  
+</section>
 
 
 
@@ -1163,7 +1187,7 @@
 <br clear="both">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.2.0</a> on Tue Jul 23 2013 09:16:00 GMT-0700 (PDT)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.0-alpha5</a> on Sat Mar 29 2014 14:10:43 GMT-0400 (EDT)
 </footer>
 
 <script> prettyPrint(); </script>
