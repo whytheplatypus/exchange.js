@@ -102,9 +102,10 @@ Exchange.prototype.ondata = function(data) {
 		this.managers[data.from][data.label].ondata(data.payload, data.path);
 	}
 	else {
-		this.managers[data.from][data.label] = new Exchange.Manager(this.id, data.from, data.label, {}, this);
+		this.managers[data.from][data.label] = this._connect(data.from, data.label, {});
 		this.trigger('peer', this.managers[data.from][data.label]);
 		this.managers[data.from][data.label].ondata(data.payload);
+
 
 	}
 }
@@ -154,13 +155,47 @@ Exchange.prototype.trigger = function(event) {
 * @return {Exchange.Manager} The Exchange.Manager handeling the handshake to the remote peer, you can access the peerconnection object from this.
 */
 Exchange.prototype._connect = function(peer, label, config) {
+	var self = this;
 	if(this.managers[peer] === undefined){
 		this.managers[peer] = {};
 	}
 	if(label === undefined) label = "base";
 	if(config === undefined) config = {};
 
-	this.managers[peer][label] = new Exchange.Manager(this.id, peer, label, config, this);
+	this.managers[peer][label] = new Exchange.Manager(config);
+
+	this.managers[peer][label].hook('post:icecandidate', function(name, evt){
+		console.log(evt);
+		self.emit({
+			type: 'CANDIDATE',
+			payload: {
+				candidate: evt.candidate
+			}
+		}, peer, label);
+	});
+
+	this.managers[peer][label].hook('post:localdescription', function(name, description, remote){
+		if(remote){
+			self.emit({
+				type: 'ANSWER',
+				payload: {
+					sdp: description
+				}
+			}, peer, label);
+
+		} else {
+			self.emit({
+				type: 'OFFER',  //Label for the message switch
+				payload: {
+					//browserisms: util.browserisms, //browser specific stuff
+					sdp: description,                    //the info to connect to this peer
+					config: this._options.config,  //connection config info
+					labels: this.labels            //not sure
+				}
+			}, peer, label);
+
+		}
+	});
 	return this.managers[peer][label];
 }
 
@@ -189,7 +224,7 @@ var RTCIceCandidate = window.mozRTCIceCandidate || window.RTCIceCandidate;
 * @param {JSON}       options  Almost always empty (can specify a stun url that's about it)
 * @param {Function}   callback [description]
 */
-Exchange.Manager = function(id, peer, label, config, exchange) {
+Exchange.Manager = function(config) {
 	var self = this;
 	//should set up defaults;
 	if(config === undefined){
@@ -210,15 +245,9 @@ Exchange.Manager = function(id, peer, label, config, exchange) {
 	this.protocol = config.protocol;
 	this._options = config;
 	// this.path = path;
-	this.label = label
-	this._send = function(data){
-		exchange.emit(data, peer, self.label);
-	};
 
-	this.id = id; //local peer
-	this.peer = peer; //remote peer
 	this.pc = null;
-	this.exchange = exchange;
+
 	// Mapping labels to metadata and serialization.
 	// label => { metadata: ..., serialization: ..., reliable: ...}
 	this.labels = {};
@@ -232,15 +261,27 @@ Exchange.Manager = function(id, peer, label, config, exchange) {
 
 };
 
+Exchange.Manager.prototype.createDataChannel = function(peer, options){
+	var dc = this.pc.createDataChannel(peer, options);
+	this.initialize();
+	return dc;
+}
+
+Exchange.Manager.prototype.createVideoChannel = function(stream){
+	console.log(this.pc);
+	var stream = this.pc.addStream(stream);
+	this.initialize();
+	return stream;
+}
+
+
 /**
 * Handle handshake data.
 * @param  {JSON} data
 */
-Exchange.Manager.prototype.ondata = function(data, path) {
+Exchange.Manager.prototype.ondata = function(data) {
+	console.log(data);
 	var self = this;
-	if(path !== undefined){
-		this.path = path.reverse();
-	}
 	switch(data.type) {
 		case this.protocol.offer:
 		console.log("got offer");
@@ -255,11 +296,8 @@ Exchange.Manager.prototype.ondata = function(data, path) {
 		case this.protocol.candidate:
 		this.handleCandidate(data.payload, data.type);
 		break;
-		case this.protocol.port:
-		this.handlePort(data.payload);
-		break;
 		default:
-		console.log("got data I didn't know what to do with: ", data);
+		console.error("got data I didn't know what to do with: ", data);
 		break;
 	}
 }
@@ -268,10 +306,7 @@ Exchange.Manager.prototype.ondata = function(data, path) {
 * Initialize the manager.
 * @param  {String} id The ID of the local node.
 */
-Exchange.Manager.prototype.initialize = function(id) {
-	if (!!id) {
-		this.id = id;
-	}
+Exchange.Manager.prototype.initialize = function() {
 
 		// Firefoxism where ports need to be generated.
 		/*if (util.browserisms === 'Firefox') {
@@ -296,19 +331,6 @@ Exchange.Manager.prototype.initialize = function(id) {
 	this.initialize = function() { };
 };
 
-Exchange.Manager.prototype.createDataChannel = function(peer, options){
-	var dc = this.pc.createDataChannel(peer, options);
-	this.initialize();
-	return dc;
-}
-
-Exchange.Manager.prototype.createVideoChannel = function(stream){
-	console.log(this.pc);
-	var stream = this.pc.addStream(stream);
-	this.initialize();
-	return stream;
-}
-
 /** Start a PC. */
 Exchange.Manager.prototype._startPeerConnection = function() {
 	console.log("starting PC");
@@ -323,12 +345,7 @@ Exchange.Manager.prototype._setupIce = function() {
 	this.pc.onicecandidate = function(evt) {
 		if (evt.candidate) {
 			self._hook('post:icecandidate', evt);
-			self._send({
-				type: 'CANDIDATE',
-				payload: {
-					candidate: evt.candidate
-				}
-			});
+
 		} else {
 			self._hook('error:icecandidate', evt);
 		}
@@ -345,12 +362,6 @@ Exchange.Manager.prototype._makeAnswer = function() {
 		self._hook('pre:localdescription', answer, true);
 		self.pc.setLocalDescription(answer, function() {
 			self._hook('post:localdescription', answer, true);
-			self._send({
-				type: 'ANSWER',
-				payload: {
-					sdp: answer
-				}
-			});
 		}, function(err) {
 			//throw err;
 			self._hook('error:localdescription', err, answer, true);
@@ -381,16 +392,6 @@ Exchange.Manager.prototype._makeOffer = function() {
 		self._hook('pre:localdescription', offer, false);
 		self.pc.setLocalDescription(offer, function() {
 			self._hook('post:localdescription', offer, false);
-			//i'm tempted to move this out of the manager and just use the post hook
-			self._send({
-				type: 'OFFER',  //Label for the message switch
-				payload: {
-					//browserisms: util.browserisms, //browser specific stuff
-					sdp: offer,                    //the info to connect to this peer
-					config: self._options.config,  //connection config info
-					labels: self.labels            //not sure
-				}
-			});
 		}, function handleError(err) {
 			//throw err;
 			self._hook('error:localdescription', offer, false);
@@ -426,10 +427,11 @@ Exchange.Manager.prototype.handleSDP = function(sdp, type) {
 /** Handle a candidate. */
 Exchange.Manager.prototype.handleCandidate = function(message) {
 	//trigger an event-hook
-	this._hook('pre:icecandidate', message);
+	console.log(message);
+	this._hook('pre:addicecandidate', message);
 	var candidate = new RTCIceCandidate(message.candidate);
 	this.pc.addIceCandidate(candidate);
-	this._hook('post:icecandidate', candidate);
+	this._hook('post:addicecandidate', candidate);
 };
 
 /** Updates label:[serialization, reliable, metadata] pairs from offer. */
@@ -450,9 +452,9 @@ Exchange.Manager.prototype._hook = function(name){
 	if(!this.hooks[name]){
 		this.hooks[name] = [];
 	}
-
+	console.log(name, this.hooks[name].length);
 	for(var i = 0; i < this.hooks[name].length; i++){
-		this.hooks[name].apply(this, arguments);
+		this.hooks[name][i].apply(this, arguments);
 	}
 
 }
