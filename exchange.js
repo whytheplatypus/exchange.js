@@ -170,7 +170,6 @@ Exchange.prototype._connect = function(peer, label, config) {
 	this.managers[peer][label] = new Exchange.Manager(config);
 
 	this.managers[peer][label].hook('post:icecandidate', function(name, evt){
-		console.log(evt);
 		self.emit({
 			type: 'CANDIDATE',
 			payload: {
@@ -273,7 +272,6 @@ Exchange.Manager.prototype.createDataChannel = function(peer, options){
 }
 
 Exchange.Manager.prototype.createVideoChannel = function(stream){
-	console.log(this.pc);
 	var stream = this.pc.addStream(stream);
 	this.initialize();
 	return stream;
@@ -285,7 +283,7 @@ Exchange.Manager.prototype.createVideoChannel = function(stream){
 * @param  {JSON} data
 */
 Exchange.Manager.prototype.ondata = function(data) {
-	console.log(data);
+	this._hook('pre:data', data);
 	var self = this;
 	switch(data.type) {
 		case this.protocol.offer:
@@ -338,7 +336,6 @@ Exchange.Manager.prototype.initialize = function() {
 
 /** Start a PC. */
 Exchange.Manager.prototype._startPeerConnection = function() {
-	console.log("starting PC");
 	this._hook('pre:peerconnection');
 	this.pc = new RTCPeerConnection(this._options, { optional: [ { RtpDataChannels: true }, {DtlsSrtpKeyAgreement: true} ]});
 	this._hook('post:peerconnection', this.pc);
@@ -432,7 +429,6 @@ Exchange.Manager.prototype.handleSDP = function(sdp, type) {
 /** Handle a candidate. */
 Exchange.Manager.prototype.handleCandidate = function(message) {
 	//trigger an event-hook
-	console.log(message);
 	this._hook('pre:addicecandidate', message);
 	var candidate = new RTCIceCandidate(message.candidate);
 	this.pc.addIceCandidate(candidate);
